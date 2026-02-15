@@ -1,0 +1,23 @@
+// 자동 저장 및 복구 관련 useEffect를 App.tsx에 추가하세요
+
+// 1. plan이 변경될 때마다 자동 저장
+useEffect(() => {
+  if (plan) {
+    saveToLocalStorage(plan, userBgm);
+  }
+}, [plan, userBgm]);
+
+// 2. 앱 시작 시 백업 확인
+useEffect(() => {
+  if (hasBackup()) {
+    const backup = loadFromLocalStorage();
+    if (backup && confirm(`마지막 작업이 ${new Date(backup.timestamp).toLocaleString()}에 백업되었습니다. 복구하시겠습니까?`)) {
+      setPlan(backup.plan);
+      if (backup.userBgmName) {
+        alert(`⚠️ BGM 파일 "${backup.userBgmName}"을(를) 다시 업로드해주세요.`);
+      }
+    }
+  }
+}, []);
+
+// 위 코드를 App.tsx의 59번 줄 (useEffect(() => { ... }, []) 아래)에 추가하세요!

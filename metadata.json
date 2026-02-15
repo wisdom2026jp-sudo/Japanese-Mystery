@@ -1,0 +1,8 @@
+
+{
+  "name": "Japanese Shorts Auto-Gen (Pro Edition)",
+  "description": "Professional YouTube Shorts automation dashboard powered by Gemini 3 Pro, Nano Banana Pro (Gemini 3 Pro Image), and Veo 3.1.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
