@@ -149,7 +149,7 @@ export async function renderVideo(
 
     // BGM
     if (userBgm) {
-        onProgress?.{ stage: 'prepare', progress: 40, message: 'BGM 로딩 중...' });
+        onProgress?.({ stage: 'prepare', progress: 40, message: 'BGM 로딩 중...' });
         await ff.writeFile('bgm.mp3', await fetchFile(userBgm));
     }
 
@@ -191,8 +191,7 @@ export async function renderVideo(
     onProgress?.({ stage: 'complete', progress: 100, message: '렌더링 완료!' });
 
     const data = await ff.readFile('output.mp4');
-
-    return new Blob([data], { type: 'video/mp4' });
+    return new Blob([data as any], { type: 'video/mp4' });
 }
 
 function base64ToWav(base64Data: string): Promise<Blob> {

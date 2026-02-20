@@ -83,7 +83,14 @@ export const generateHealingPlan = async (topic: string, persona: PersonaType = 
   const prompt = `Create a professional YouTube Shorts production plan for: "${topic}". 
   Target: Japanese audience. Tone: ${persona}.
   Video length: 2:59.
+  
+  CRITICAL INSTRUCTIONS for YouTube Algorithm:
+  1. title_ja: Must be an extremely attention-grabbing, viral click-bait title (max 50 chars). User power words, emojis, and mystery hooks.
+  2. description_ja: Write a detailed, engaging description including a summary of the mystery and emotional hooks.
+  3. tags: Provide 20+ viral search tags related to Japanese mystery and the specific topic.
+  
   You MUST provide exactly 15 distinct image prompts for the storyboard.
+  EACH PROMPT MUST DESCRIBE A VERTICAL (9:16) COMPOSITION.
   Use Google Search to find real historical facts or urban legends related to the topic for Japanese authenticity.
   JSON format required.`;
 
@@ -113,7 +120,7 @@ export const generateHealingPlan = async (topic: string, persona: PersonaType = 
 };
 
 export const generateHookImage = async (imagePrompt: string, style: VisualStyle = 'cinematic_real'): Promise<string | undefined> => {
-  const hookPrompt = `VERTICAL FORMAT ONLY (9:16 ratio, portrait orientation). NO horizontal/landscape. Cinematic Close-up. ${imagePrompt}. ${JAPANESE_PHOTO_RULES}`;
+  const hookPrompt = `[STRICTLY 9:16 VERTICAL] Authentic Japanese scene. Full vertical frame. High-end cinematic photography. No horizontal margins. ${imagePrompt}. ${JAPANESE_PHOTO_RULES}`;
   return retryWithBackoff(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
@@ -127,7 +134,7 @@ export const generateHookImage = async (imagePrompt: string, style: VisualStyle 
 };
 
 export const generateHealingImage = async (mood: string, topic: string, specificPrompt?: string, style: VisualStyle = 'cinematic_real'): Promise<string | undefined> => {
-  const prompt = `VERTICAL FORMAT ONLY (9:16 ratio, portrait orientation). NO horizontal/landscape. Cinematic scene. ${specificPrompt || topic}. ${JAPANESE_PHOTO_RULES}`;
+  const prompt = `[STRICTLY 9:16 VERTICAL] Full vertical composition. Cinematic Japanese mood. High resolution. ${specificPrompt || topic}. ${JAPANESE_PHOTO_RULES}`;
   return retryWithBackoff(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({

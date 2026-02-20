@@ -1,4 +1,4 @@
-# 🎬 Healing Shorts Auto-Gen - Professional Edition
+# 🎬 Mystery Factory (ミステリーファクトリー) - Professional Edition
 
 일본 미스테리/힐링 쇼츠 자동 생성 플랫폼 (한일 동시 생성)
 

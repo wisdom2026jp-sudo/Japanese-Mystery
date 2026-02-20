@@ -14,7 +14,7 @@ async function testVeoAccess() {
         console.log('✅ Veo model found! You have access.');
         return true;
 
-    } catch (error: any) {
+    } catch (error) {
         console.error('❌ Veo access test failed:');
         console.error(error.message);
 
