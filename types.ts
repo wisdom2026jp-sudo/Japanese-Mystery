@@ -5,28 +5,32 @@ export interface GroundingSource {
 }
 
 export interface HealingPlan {
-  title_ja: string; 
-  title_kr: string; 
-  description_ja: string; 
-  script_ja: string; 
+  title_ja: string;
+  title_kr: string;
+  description_ja: string;
+  script_ja: string;
   script_kr: string;
   mood: string;
-  bgm_descriptor: string; 
-  tags: string[]; 
-  hook_image_prompt: string; 
-  story_image_prompts: string[]; 
-  creator_affirmation: string; 
-  backgroundImageUrl?: string; 
-  storyImageUrls?: string[]; 
-  hookImageUrl?: string; 
-  hookVideoUrl?: string; 
+  bgm_descriptor: string;
+  tags: string[];
+  hook_image_prompt: string;
+  story_image_prompts: string[];
+  creator_affirmation: string;
+  backgroundImageUrl?: string;
+  storyImageUrls?: string[];
+  hookImageUrl?: string;
+  hookVideoUrl?: string;
   backgroundVideoUrl?: string;
-  audioBase64?: string; 
+  audioBase64?: string;
   selectedEffects?: MysteryEffect[];
+  selectedSfx?: string[];
+  hookText?: string;
   groundingSources?: GroundingSource[];
 }
 
 export type MysteryEffect = 'night_vision' | 'tracking' | 'film_jitter';
+
+export type SfxType = 'horror_noise' | 'heartbeat' | 'transition_whoosh' | 'deep_rumble' | 'static_burst';
 
 export type VisualStyle = 'warm_film' | 'blue_hour' | 'dreamy_soft' | 'cinematic_real';
 
@@ -47,8 +51,8 @@ export enum GenerationStep {
   GENERATING_IMAGE = 'GENERATING_IMAGE',
   GENERATING_AUDIO = 'GENERATING_AUDIO',
   GENERATING_VIDEO = 'GENERATING_VIDEO',
-  GENERATING_HOOK_VIDEO = 'GENERATING_HOOK_VIDEO', 
-  PROCESSING_ASSETS = 'PROCESSING_ASSETS', 
+  GENERATING_HOOK_VIDEO = 'GENERATING_HOOK_VIDEO',
+  PROCESSING_ASSETS = 'PROCESSING_ASSETS',
   COMPLETED = 'COMPLETED',
   ERROR = 'ERROR'
 }

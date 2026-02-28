@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Loader2, Youtube, Wand2, Image as ImageIcon, Zap, Laugh, Ghost, Moon, Rocket, AlertTriangle, Eye, Move, MapPin, Skull, Key, Grid, Diamond, LayoutDashboard, Terminal, Info } from 'lucide-react';
+import { Sparkles, Loader2, Wand2, Image as ImageIcon, Zap, Laugh, Ghost, Moon, Rocket, AlertTriangle, Eye, Move, MapPin, Skull, Key, Grid, LayoutDashboard, Terminal, Info, RefreshCw } from 'lucide-react';
 import { generateHealingPlan, generateHealingImage, generateHookImage, generateHealingAudio, generateHealingVideo } from './services/geminiService';
-import { HealingPlan, GenerationStep, VisualStyle, PersonaType, Persona, MysteryEffect } from './types';
+import { HealingPlan, GenerationStep, VisualStyle, PersonaType, Persona, MysteryEffect, SfxType } from './types';
 import { ScriptCard } from './components/ScriptCard';
 import { VideoPreview } from './components/VideoPreview';
 import { PythonExport } from './components/PythonExport';
-import { saveToLocalStorage, loadFromLocalStorage, hasBackup } from './utils/autoSave';
+
 
 declare global {
   interface AIStudio {
@@ -29,7 +29,7 @@ const PERSONAS: ExtendedPersona[] = [
   { id: 'healer', name: '真夜中の癒やし', name_kr: '한밤중의 힐링', icon: 'Moon', description: '위로와 감성 콘텐츠', color: 'bg-indigo-50 text-indigo-700 border-indigo-200', label: 'Healing' }
 ];
 
-const MYSTERY_PRESETS = [
+const ALL_MYSTERY_PRESETS = [
   { title: "赤いコート", title_kr: "붉은 코트의 여자", query: "새벽 3시 교차로마다 나타나는 붉은 코트의 여자, 눈이 마주치면 일주일 안에 사라진다는 도쿄 도시전설" },
   { title: "人面犬", title_kr: "인면견", query: "고속도로를 시속 100km로 달리는 사람 얼굴의 개, 인면견을 목격한 자는 반드시 불행이 찾아오는 일본 괴담" },
   { title: "口裂け女", title_kr: "입찢긴 여자", query: "마스크 뒤에 귀까지 찢어진 입을 숨긴 여자, '나 예뻐?'라고 묻는 일본 최공포 도시전설의 진실" },
@@ -37,8 +37,42 @@ const MYSTERY_PRESETS = [
   { title: "鏡の中の他人", title_kr: "거울 속 타인", query: "심야 12시, 거울 속 내 모습이 0.5초 늦게 움직인다는 괴담. 일본 연구소의 실험 영상이 유출된 사건" },
   { title: "呪いの絵画", title_kr: "저주받은 그림", query: "경매 때마다 소유자가 사망하는 메이지 시대 일본 화가의 그림, 그림 속 소녀의 눈동자가 밤마다 움직인다" },
   { title: "地下鉄の幽霊", title_kr: "지하철 유령 승객", query: "도쿄 마루노우치선 야간 운행 시 나타나는 승객 명부에 없는 탑승자, 17년째 같은 정류장에서 타고 내린다" },
-  { title: "木の上の笑い声", title_kr: "나무 위의 웃음소리", query: "교토 후시미이나리 신사 폐쇄 구역 깊은 밤, 수십 미터 높이 삼나무 위에서 들려오는 어린아이의 웃음소리" }
+  { title: "木の上の笑い声", title_kr: "나무 위의 웃음소리", query: "교토 후시미이나리 신사 폐쇄 구역 깊은 밤, 수십 미터 높이 삼나무 위에서 들려오는 어린아이의 웃음소리" },
+  { title: "一本足の女", title_kr: "외다리 여인", query: "교토 산속 다리에서 불쑥 나타나는 다리가 하나인 여인, 만나는 자는 다음날 산 아래에서 죽은 채 발견된다" },
+  { title: "電話鬼", title_kr: "전화 귀신", query: "바다 면한 당주에 있는 공중전화로부터 반복적으로 일본어로 수신되는 전화, 수신자 모두 3일 이내 실종" },
+  { title: "善哉架橋", title_kr: "선재집", query: "가오롱의 사찰에서 10년마다 한 번씩 발굴되는 미성년 소녀의 유해, DNA 검사는 항상 '0세 이하'로 판정되는 에도 현상" },
+  { title: "香川県の海", title_kr: "카가와 해수욕", query: "히노타 포리에서 자릴 잡은 슬롯머신의 비밀 방, 연속으로 사라지는 업주원들과 그들이 남기는 시력한 메모" },
+  { title: "山の決し掃い", title_kr: "산의 다다조지이", query: "후지시를 등산하던 등산객들이 외롭긴 잡유에 끔이는 걸 목격. 산에서는 메아리가 죽은 자를 다다론다는 일본 전설" },
+  { title: "深夜のコンビニ", title_kr: "심야 편의점", query: "일본 전국 편의점 CCTV에 반복된다는 너만 바지를 입은 존재, 카메라 압력위에요 트리위엔음의시간돌 직원만에게만 보인다" },
+  { title: "決して教えない部屋", title_kr: "절대 가르쳐 주지 않는 방", query: "최신 이사한 집에는 반드시 '1수 더 많은 방'이 있다는 일본 부동산 굴이. 새 세입자마다 발견하는 모르는 메모" },
+  { title: "水川の面", title_kr: "물강의 얼굴", query: "시즈오카의 시보가슴 강에서 매년 발견되는 신원 미상 얼굴, 부검고에는 '3년 전에 사망'이라는 좌치를 알 수 없는 결과가 나온다" },
+  { title: "呪いの山田", title_kr: "저주의 논지", query: "투표마다 짝수로 번렉치를 쓰는 확률로 유명한 경기도의 논지, 그 논지 주인의 5대째 에도 현상과 기형 범죄 담당 상관관계" },
+  { title: "入れ替わりの恋人", title_kr: "입품 교대의 연인", query: "정확히 자정 솔에 교대되는 오사카 커플, 7년간 요코하마를 철도를 타도 여성이 뭇 달러 접근하는 남성'" },
+  { title: "犬が返ってこない山", title_kr: "개가 돌아오지 않는 산", query: "개를 데리고 등산하면 반드시 음신 펀체 달리는 나가이와코와 타무라 산의 커다란 비밀, 돌아온 개는 두 번 다시 슬라지지 않는다" },
+  { title: "印籠さまの訴え", title_kr: "인세이먹의 저주", query: "에도 시대 7인의 사무라이가 안토 평은후 하나로 남긴 저주의 편지, 네 체인에 담긴 여인을 다시 만다 때까지 누구도 죽지 않는다" },
+  { title: "ブラッククリスマス", title_kr: "블랙 크리스마스", query: "크리스마스 전날 중앙도파매한 일본의 어린이에게 맨션 바꿔옵니다는 맞춤 화이트업의 필에다 안상 상자의 정체" },
+  { title: "正年の饋養者", title_kr: "정원 대나 인간", query: "음력 정월 복도를 폰다 나타나는 또 다른 사람의 모습으로 눈을 마주치는 짤마 나라 'can적대리인간', 목갛으면 운이 달아나는다" },
+  { title: "天井裸足", title_kr: "천장 나해발", query: "에도 시대 집터 형제에서 말성먹는 동생의 나해발을 천장에 달아 놓은 비에, 집터 분가도 회복되지 않는다는 100년 전설" },
+  { title: "混じり無しの電車", title_kr: "혼잡없는 전차", query: "도스미 대진늡 시간대 즐취만 연결되는 특정 카 안에 타면 다음 역에서 반드시 안개가 끌려 시야가 0으로 때어진다" },
+  { title: "学校の七不思議", title_kr: "학교의 7가지 불가사의", query: "도쿄 중학교 훈실 장 안에서 다음 수업시간에 등장하는 당당하지 않은 학가형 서보드, 여넘 7번째 불가사의는 '4번방 덧심대' 이다" },
+  { title: "死後のSNS", title_kr: "사후 SNS", query: "몇 주전 사망한 자녀의 계정에서 지속적으로 주어지는 '.나 지금 대늡에 있다' 라는 DM, 헤더 끊어도 계속 스킬록 사진가 와단 다" },
+  { title: "医者に臣える鬼", title_kr: "의사에게 배우는 유령", query: "교토 대학 의학부 해부학 실습 도중 시신을 한다는 다이에란 제보하자 시신도 관리자도 없어질 때의 맥스터하이 주프날 작성자의 복수" },
+  { title: "消えた町の記憶", title_kr: "사라진 마을의 기억", query: "도쿄 에시로 오코미 마을에서 64세 노인이 '40년 전 이 지역에 문컨 번화하는 마을이 있었다'는 증언, 지도에도 경역에도 흔적이 없다" },
+  { title: "海の底の消灯台", title_kr: "바다 속 등대수로", query: "시즈오화 도리베 마음'0' 머래통누 하며 쉽지 않은 다이버들이 발견하는 수심 20m에 불이 켜지는 역대 등대수로, 취원함은 역대 해영사'0사" },
+  { title: "白い筒の乱舎", title_kr: "흰 구덩의 목책", query: "제자들에게서 특정 가라오케를 로컷대에서 세우는 빈 구덩 속에서 들려오는 측가없는 남을 목소리에 다 함구동한 신주들에서 별다간에 끝랄" },
+  { title: "嫌いな窓外", title_kr: "싫은 창밖", query: "도쿄 마루노우치 선 전도 22닌 창측의 잘 보이는 특정 자리, 그 자리와 서는 쑤매 4명은 정신송르지 헸는 의학적 연구보고를봐러온 다」" },
+  { title: "雨の夕の消滅孩", title_kr: "비의 저녁 실종아이", query: "에히메 현 호우 마을에서 비오는 날마다 연령대가 다른 아이들이 같은 지점에서 사라로니를, 북경오라는 마을 뜰밖에겠다는 제보 당당 교유사의 반론" },
+  { title: "耐忍の無人島", title_kr: "인내의 무인도", query: "오키나와 무인도를 횡수하다 발건한 특이한 서아르는 사류들, 같이 뒤 어부는 장가 엘리트 대원에 서 다 넙대로 맨 지나갑자기 사망합니다" },
+  { title: "神社の竜篝", title_kr: "신사의 용른두리", query: "훗도 신사를 찾은 리포터가 동구락 컨 나무에 열린 용두 돌리기 구멍에서 갖안온 단란한 눈에 은박하는 수백의 얼굴들을 목격" },
 ];
+
+// 랜덤하게 중복 없이 8개 선택
+function samplePresets(all: typeof ALL_MYSTERY_PRESETS, exclude: Set<number>, count = 8) {
+  const available = all.map((_, i) => i).filter(i => !exclude.has(i));
+  const pool = available.length >= count ? available : all.map((_, i) => i);
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
 
 export default function App() {
   const [topic, setTopic] = useState('');
@@ -46,6 +80,8 @@ export default function App() {
   const [visualStyle, setVisualStyle] = useState<VisualStyle>('cinematic_real');
   const [selectedPersona, setSelectedPersona] = useState<PersonaType>('mystery');
   const [selectedEffects, setSelectedEffects] = useState<MysteryEffect[]>(['night_vision', 'film_jitter']);
+  const [selectedSfx, setSelectedSfx] = useState<SfxType[]>(['horror_noise', 'heartbeat']);
+  const [hookText, setHookText] = useState<string>('都市伝説');
   const [plan, setPlan] = useState<HealingPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
@@ -54,6 +90,27 @@ export default function App() {
 
   const [userBgm, setUserBgm] = useState<File | null>(null);
   const [hasVideoKey, setHasVideoKey] = useState(false);
+
+  // 프리셋 새로고침 state
+  const [presetIndices, setPresetIndices] = useState<number[]>(() =>
+    samplePresets(ALL_MYSTERY_PRESETS, new Set())
+  );
+  const [usedPresetIndices, setUsedPresetIndices] = useState<Set<number>>(() => new Set<number>());
+  const [isPresetRefreshing, setIsPresetRefreshing] = useState(false);
+
+  const handleRefreshPresets = () => {
+    setIsPresetRefreshing(true);
+    setTimeout(() => {
+      const newUsed = new Set<number>([...usedPresetIndices, ...presetIndices]);
+      const next = samplePresets(ALL_MYSTERY_PRESETS, newUsed);
+      setPresetIndices(next);
+      setUsedPresetIndices(newUsed);
+      setIsPresetRefreshing(false);
+    }, 280);
+  };
+
+  const visiblePresets = presetIndices.map(i => ALL_MYSTERY_PRESETS[i]);
+
 
   useEffect(() => {
     const checkKey = async () => {
@@ -75,6 +132,8 @@ export default function App() {
     try {
       const generatedPlan = await generateHealingPlan(topic, selectedPersona);
       generatedPlan.selectedEffects = selectedEffects;
+      generatedPlan.selectedSfx = selectedSfx;
+      generatedPlan.hookText = hookText;
       setPlan(generatedPlan);
 
       const prompts = generatedPlan.story_image_prompts || [];
@@ -238,13 +297,29 @@ export default function App() {
           </div>
 
           <div>
-            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">2. JP Mystery Presets (일본 괴담 특화)</label>
-            <div className="grid grid-cols-2 gap-2">
-              {MYSTERY_PRESETS.map((p, i) => (
+            <div className="flex items-center justify-between mb-4">
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">2. JP Mystery Presets (일본 괴담 특화)</label>
+              <button
+                type="button"
+                onClick={handleRefreshPresets}
+                disabled={isGenerating || isPresetRefreshing}
+                title={`새로운 괴담 8개 보기 (총 ${ALL_MYSTERY_PRESETS.length}개 풀)`}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border-2 text-[10px] font-black transition-all ${isPresetRefreshing
+                  ? 'border-indigo-300 bg-indigo-50 text-indigo-300 cursor-wait'
+                  : 'border-indigo-500 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 active:scale-95'
+                  }`}
+              >
+                <RefreshCw size={11} className={isPresetRefreshing ? 'animate-spin' : ''} />
+                새로고침
+              </button>
+            </div>
+            <div className={`grid grid-cols-2 gap-2 transition-opacity duration-300 ${isPresetRefreshing ? 'opacity-30' : 'opacity-100'}`}>
+              {visiblePresets.map((p, i) => (
                 <button
-                  key={i}
+                  key={`${presetIndices[i]}-${i}`}
                   type="button"
                   onClick={() => { setTopic(p.query); setSelectedPersona('mystery'); }}
+                  disabled={isGenerating}
                   className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:border-indigo-600 hover:shadow-md transition-all text-left flex items-center justify-between group"
                 >
                   <div className="flex flex-col">
@@ -260,6 +335,7 @@ export default function App() {
             </div>
           </div>
 
+
           <div>
             <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">3. Master Topic (주제 입력)</label>
             <textarea
@@ -274,7 +350,7 @@ export default function App() {
 
           <div>
             <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">4. Viral Hook FX (영상 효과)</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 mb-4">
               {[
                 { id: 'night_vision', label: '암시(暗視)', label_kr: '나이트비전', icon: Eye, color: 'text-emerald-500' },
                 { id: 'tracking', label: '追跡', label_kr: '트래킹', icon: Move, color: 'text-indigo-500' },
@@ -290,8 +366,7 @@ export default function App() {
                     setSelectedEffects(next as MysteryEffect[]);
                   }}
                   disabled={isGenerating}
-                  className={`py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${selectedEffects.includes(fx.id as MysteryEffect) ? 'border-indigo-600 bg-indigo-50 shadow-md' : 'border-slate-100 bg-slate-50'
-                    }`}
+                  className={`py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${selectedEffects.includes(fx.id as MysteryEffect) ? 'border-indigo-600 bg-indigo-50 shadow-md' : 'border-slate-100 bg-slate-50'}`}
                   title={fx.label_kr}
                 >
                   <fx.icon size={16} className={selectedEffects.includes(fx.id as MysteryEffect) ? fx.color : 'text-slate-400'} />
@@ -299,38 +374,89 @@ export default function App() {
                   <span className="text-[8px] opacity-50 font-bold">{fx.label_kr}</span>
                 </button>
               ))}
-              <div>
-                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">5. Background Music (BGM 업로드)</label>
-                <label className={`flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition-all ${userBgm
-                  ? 'bg-white border-emerald-500'
-                  : 'bg-white border-slate-200 hover:border-amber-400'
-                  }`}>
-                  <div className={`p-3 rounded-xl ${userBgm ? 'bg-emerald-100' : 'bg-amber-100'}`}>
-                    <Sparkles size={20} className={userBgm ? 'text-emerald-600' : 'text-amber-600'} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-black text-slate-900 mb-0.5">
-                      {userBgm ? userBgm.name : 'BGM 파일 선택'}
-                    </p>
-                    <p className="text-[9px] text-slate-400 font-medium">
-                      {userBgm ? 'MP3 준비완료' : 'MP3/WAV 필수'}
-                    </p>
-                  </div>
-                  {!userBgm && (
-                    <span className="shrink-0 px-2 py-0.5 bg-amber-500 text-white text-[8px] font-black rounded">
-                      필수
-                    </span>
-                  )}
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="audio/*"
-                    onChange={(e) => e.target.files?.[0] && setUserBgm(e.target.files[0])}
-                  />
-                </label>
-              </div>
-
             </div>
+          </div>
+
+          {/* ===== UPDATE 1: 특수 음향 효과 (SFX) ===== */}
+          <div>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">5. Horror SFX (공포 음향 효과)</label>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              {([
+                { id: 'horror_noise', label: '🔴 恐怖ノイズ', label_kr: '공포 노이즈' },
+                { id: 'heartbeat', label: '💜 心臓の鼓動', label_kr: '심장 박동' },
+                { id: 'transition_whoosh', label: '💨 切替効果', label_kr: '장면전환 음' },
+                { id: 'deep_rumble', label: '🌑 低音振動', label_kr: '저음 진동' },
+                { id: 'static_burst', label: '⚡ 静電気', label_kr: '정전기 버스트' },
+              ] as { id: SfxType, label: string, label_kr: string }[]).map((sfx) => (
+                <button
+                  key={sfx.id}
+                  type="button"
+                  onClick={() => {
+                    const next = selectedSfx.includes(sfx.id)
+                      ? selectedSfx.filter(s => s !== sfx.id)
+                      : [...selectedSfx, sfx.id];
+                    setSelectedSfx(next);
+                  }}
+                  disabled={isGenerating}
+                  className={`py-2 px-3 rounded-xl border-2 flex flex-col items-start gap-0.5 transition-all text-left ${selectedSfx.includes(sfx.id)
+                    ? 'border-red-500 bg-red-50 shadow-md'
+                    : 'border-slate-100 bg-slate-50 hover:border-slate-300'
+                    }`}
+                >
+                  <span className="text-[10px] font-black">{sfx.label}</span>
+                  <span className="text-[9px] opacity-60 font-medium">{sfx.label_kr}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[9px] text-slate-400 font-bold mt-1">✨ 선택한 SFX가 장면 전환 시 자동 삽입됩니다</p>
+          </div>
+
+          {/* ===== UPDATE 3: 훅 문구 커스터마이징 ===== */}
+          <div>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">6. Hook Title Text (훅 타이틀 문구)</label>
+            <div className="flex items-center gap-3 p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus-within:border-red-500 transition-all">
+              <div className="p-2 bg-red-100 rounded-xl">
+                <Skull size={16} className="text-red-600" />
+              </div>
+              <input
+                type="text"
+                value={hookText}
+                onChange={(e) => setHookText(e.target.value)}
+                disabled={isGenerating}
+                className="flex-1 bg-transparent text-sm font-black text-slate-900 outline-none"
+                placeholder="都市伝説"
+                maxLength={6}
+              />
+              <span className="text-[9px] text-slate-400 font-bold shrink-0">최대 6자</span>
+            </div>
+            <p className="text-[9px] text-slate-400 font-bold mt-1">📌 훅 영상 좌측에 세로로 표시되는 타이틀 문구</p>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">7. Background Music (BGM 업로드)</label>
+            <label className={`flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition-all ${userBgm ? 'bg-white border-emerald-500' : 'bg-white border-slate-200 hover:border-amber-400'
+              }`}>
+              <div className={`p-3 rounded-xl ${userBgm ? 'bg-emerald-100' : 'bg-amber-100'}`}>
+                <Sparkles size={20} className={userBgm ? 'text-emerald-600' : 'text-amber-600'} />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-black text-slate-900 mb-0.5">
+                  {userBgm ? userBgm.name : 'BGM 파일 선택'}
+                </p>
+                <p className="text-[9px] text-slate-400 font-medium">
+                  {userBgm ? 'MP3 준비완료' : 'MP3/WAV 필수'}
+                </p>
+              </div>
+              {!userBgm && (
+                <span className="shrink-0 px-2 py-0.5 bg-amber-500 text-white text-[8px] font-black rounded">필수</span>
+              )}
+              <input
+                type="file"
+                className="hidden"
+                accept="audio/*"
+                onChange={(e) => e.target.files?.[0] && setUserBgm(e.target.files[0])}
+              />
+            </label>
           </div>
 
           <button
@@ -498,7 +624,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <PythonExport plan={plan} userBgm={userBgm} userBackground={null} onAnimateHook={handleAnimateHook} isAnimatingHook={step === GenerationStep.GENERATING_HOOK_VIDEO} />
+                    <PythonExport plan={plan} userBgm={userBgm} onAnimateHook={handleAnimateHook} isAnimatingHook={step === GenerationStep.GENERATING_HOOK_VIDEO} />
                   </div>
                 )}
               </div>
@@ -508,12 +634,6 @@ export default function App() {
                     plan={plan}
                     userBgm={userBgm}
                     onBgmSelect={setUserBgm}
-                    userBackground={null}
-                    onBackgroundSelect={() => { }}
-                    onAnimate={() => { }}
-                    onAnimateHook={handleAnimateHook}
-                    isAnimating={false}
-                    isAnimatingHook={step === GenerationStep.GENERATING_HOOK_VIDEO}
                   />
                 </div>
               </div>

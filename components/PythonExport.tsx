@@ -7,7 +7,6 @@ import JSZip from 'jszip';
 interface PythonExportProps {
     plan: HealingPlan;
     userBgm: File | null;
-    userBackground: File | null;
     onAnimateHook: () => void;
     isAnimatingHook: boolean;
 }
@@ -110,6 +109,49 @@ FONT_FILENAME = "SpoqaHanSansJPBold.ttf"
 TARGET_W, TARGET_H = 1080, 1920
 FIXED_DURATION = 179.0 
 SELECTED_EFFECTS = ${JSON.stringify(plan.selectedEffects || [])}
+SELECTED_SFX = ${JSON.stringify(plan.selectedSfx || [])}
+HOOK_TEXT = "${(plan.hookText || '都市伝説').replace(/"/g, '\\"')}"
+
+# ===== UPDATE 1: SFX 생성 함수 (numpy로 공포 음향 자동 생성) =====
+def generate_sfx(sfx_type, duration=2.0, sample_rate=44100):
+    """공포 음향 효과를 numpy로 자동 생성"""
+    t = np.linspace(0, duration, int(sample_rate * duration))
+    audio = np.zeros(len(t))
+    try:
+        if sfx_type == 'horror_noise':
+            noise = np.random.randn(len(t)) * 0.3
+            rumble_freq = 40
+            rumble = np.sin(2 * np.pi * rumble_freq * t) * 0.4 * np.exp(-t * 0.8)
+            audio = noise + rumble
+        elif sfx_type == 'heartbeat':
+            for beat_t in np.arange(0, duration, 1.0):
+                for pulse_offset in [0.0, 0.25]:
+                    pt = t - beat_t - pulse_offset
+                    mask = (pt >= 0) & (pt < 0.18)
+                    audio[mask] += np.sin(2 * np.pi * 70 * pt[mask]) * np.exp(-pt[mask] * 18) * 0.8
+        elif sfx_type == 'transition_whoosh':
+            freq = np.linspace(300, 40, len(t))
+            phase = 2 * np.pi * np.cumsum(freq) / sample_rate
+            audio = np.sin(phase) * np.exp(-t * 2.5) * 0.6
+        elif sfx_type == 'deep_rumble':
+            audio = (np.sin(2 * np.pi * 30 * t) * 0.5 +
+                     np.sin(2 * np.pi * 55 * t) * 0.3 +
+                     np.random.randn(len(t)) * 0.05)
+        elif sfx_type == 'static_burst':
+            audio = np.random.randn(len(t)) * 0.7
+            envelope = np.exp(-t * 4)
+            audio = audio * envelope
+        # 정규화
+        max_val = np.max(np.abs(audio))
+        if max_val > 0:
+            audio = audio / max_val * 0.65
+        # 스테레오 변환 (2채널)
+        stereo = np.column_stack([audio, audio])
+        return AudioArrayClip(stereo, fps=sample_rate)
+    except Exception as e:
+        print(f"  ⚠️ SFX 생성 실패 ({sfx_type}): {e}")
+        return None
+
 
 def apply_mystery_effects(clip, effects, is_hook=False):
     if not effects: return clip
@@ -160,18 +202,22 @@ def apply_mystery_effects(clip, effects, is_hook=False):
             title_img = Image.new('RGBA', (TARGET_W, TARGET_H), (0,0,0,0))
             draw_t = ImageDraw.Draw(title_img)
             f_path = "SpoqaHanSansJPBold.ttf" if os.path.exists("SpoqaHanSansJPBold.ttf") else "arial.ttf"
-            try: font_t = ImageFont.truetype(f_path, 130)
+            try: font_t = ImageFont.truetype(f_path, 169)
             except: font_t = ImageFont.load_default()
             
-            v_text = "都市伝説"
-            curr_y = 300
+            # ===== UPDATE 3: HOOK_TEXT 변수 사용 =====
+            v_text = HOOK_TEXT
+            curr_y = 250
             for char in v_text:
                 bbox = draw_t.textbbox((0,0), char, font=font_t)
                 char_w = bbox[2] - bbox[0]
-                for off in [(3,3),(-3,-3)]:
-                    draw_t.text((70 + (130-char_w)//2 + off[0], curr_y + off[1]), char, font=font_t, fill=(0,0,0,100))
-                draw_t.text((70 + (130-char_w)//2, curr_y), char, font=font_t, fill=(255,255,255,190))
-                curr_y += 150
+                try:
+                    draw_t.text((70 + (169-char_w)//2, curr_y), char, font=font_t, fill=(180,0,0,255), stroke_width=6, stroke_fill=(255,255,255,255))
+                except:
+                    for off in [(-4,-4), (4,-4), (-4,4), (4,4), (-4,0), (4,0), (0,-4), (0,4)]:
+                        draw_t.text((70 + (169-char_w)//2 + off[0], curr_y + off[1]), char, font=font_t, fill=(255,255,255,255))
+                    draw_t.text((70 + (169-char_w)//2, curr_y), char, font=font_t, fill=(180,0,0,255))
+                curr_y += 190
             title_clip = ImageClip(np.array(title_img)).set_duration(clip.duration).set_start(clip.start)
             clip = CompositeVideoClip([clip, title_clip])
         except: pass
@@ -244,12 +290,38 @@ def main():
     voice_start = hook_dur + 0.5
     final_voice = voice_clip.set_start(voice_start)
     bgm_files = glob.glob("bgm.*")
+    
+    # ===== UPDATE 1: SFX 믹싱 =====
+    sfx_audio_clips = [final_voice]
     if bgm_files:
         try:
             bgm = AudioFileClip(bgm_files[0]).volumex(0.18).audio_loop(duration=FIXED_DURATION).audio_fadeout(3.0)
-            final_audio = CompositeAudioClip([bgm, final_voice])
-        except: final_audio = final_voice
-    else: final_audio = final_voice
+            sfx_audio_clips.append(bgm)
+        except: pass
+    
+    if SELECTED_SFX:
+        print(f"  🔊 SFX 생성 중: {SELECTED_SFX}")
+        story_files_sfx = sorted(glob.glob("story_*.png"))
+        story_count = len(story_files_sfx)
+        if story_count > 0:
+            slide_dur = (FIXED_DURATION - hook_dur) / max(story_count, 1)
+            for sfx_type in SELECTED_SFX:
+                sfx_dur = 3.0 if sfx_type == 'heartbeat' else 2.5
+                sfx_clip = generate_sfx(sfx_type, duration=sfx_dur)
+                if sfx_clip:
+                    insert_points = [hook_dur + 0.3]
+                    mid = story_count // 2
+                    if mid > 0:
+                        insert_points.append(hook_dur + mid * slide_dur)
+                    if story_count > 2:
+                        insert_points.append(hook_dur + (story_count - 2) * slide_dur)
+                    for pt in insert_points:
+                        try:
+                            sfx_audio_clips.append(sfx_clip.volumex(0.55).set_start(pt))
+                        except: pass
+        print("  ✅ SFX 믹싱 완료")
+    
+    final_audio = CompositeAudioClip(sfx_audio_clips)
     final_video = final_video.set_audio(final_audio)
 
     subtitle_clips = []
@@ -312,10 +384,67 @@ def main():
                         subtitle_clips.append(sub)
         except: pass
 
-    print("💾 High-Quality Encoding Starting (V37.1)...")
+    # ===== 구독/좋아요 유도 자막 (영상 마지막 174~179초) =====
+    try:
+        CTA_START = 174.0   # 나레이션 종료 직후
+        CTA_END   = FIXED_DURATION  # 179초
+        cta_dur   = CTA_END - CTA_START  # 5초
+
+        CW, CH = TARGET_W, 320
+        cta_img = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
+        draw_c  = ImageDraw.Draw(cta_img)
+
+        # 배경 반투명 박스
+        try: draw_c.rounded_rectangle([40, 30, CW-40, CH-30], radius=36, fill=(0, 0, 0, 185))
+        except: draw_c.rectangle([40, 30, CW-40, CH-30], fill=(0, 0, 0, 185))
+
+        # 폰트 설정
+        try:
+            font_cta_main = ImageFont.truetype(font_path, 46)
+            font_cta_sub  = ImageFont.truetype(font_path, 36)
+        except:
+            font_cta_main = font_cta_sub = ImageFont.load_default()
+
+        # 1행 - 메인 문구
+        line1 = "面白いお話をもっと聞きたい方は"
+        bbox1 = draw_c.textbbox((0, 0), line1, font=font_cta_main)
+        w1 = bbox1[2] - bbox1[0]
+        draw_c.text(((CW - w1) // 2, 55), line1, font=font_cta_main, fill=(255, 255, 255, 240))
+
+        # 2행 - 강조 문구
+        line2 = "チャンネル登録と👍いいねを"
+        bbox2 = draw_c.textbbox((0, 0), line2, font=font_cta_main)
+        w2 = bbox2[2] - bbox2[0]
+        draw_c.text(((CW - w2) // 2, 115), line2, font=font_cta_main, fill=(255, 220, 60, 255))
+
+        # 3행 - 정중한 마무리
+        line3 = "よろしくお願いいたします 🙏"
+        bbox3 = draw_c.textbbox((0, 0), line3, font=font_cta_sub)
+        w3 = bbox3[2] - bbox3[0]
+        draw_c.text(((CW - w3) // 2, 178), line3, font=font_cta_sub, fill=(200, 230, 255, 220))
+
+        cta_clip = (
+            ImageClip(np.array(cta_img))
+            .set_duration(cta_dur)
+            .set_start(CTA_START)
+            .set_position(("center", 0.72), relative=True)
+            .crossfadein(0.8)
+            .crossfadeout(1.0)
+        )
+        subtitle_clips.append(cta_clip)
+        print(f"  ✅ 구독 유도 자막 추가 ({CTA_START}초 ~ {CTA_END}초)")
+    except Exception as e:
+        print(f"  ⚠️ 구독 유도 자막 실패: {e}")
+
+    print("💾 High-Quality Encoding Starting (V38.0 SFX Update)...")
     final = CompositeVideoClip([final_video] + subtitle_clips).set_duration(FIXED_DURATION)
     final.write_videofile("final_output.mp4", fps=24, codec='libx264', audio_codec='aac', threads=4, preset='ultrafast')
-    print("✅ MASTER RENDER COMPLETE.")
+    print("\\n" + "="*60)
+    print("✅ MASTER RENDER COMPLETE (V38.0)")
+    print("📁 final_output.mp4  - 최종 영상")
+    print(f"🔊 SFX 음향효과     - {SELECTED_SFX}")
+    print(f"🎬 훅 타이틀        - {HOOK_TEXT}")
+    print("="*60)
 
 if __name__ == "__main__":
     try:

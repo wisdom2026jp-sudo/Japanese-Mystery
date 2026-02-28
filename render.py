@@ -21,7 +21,7 @@ print()
 TARGET_WIDTH = 1080
 TARGET_HEIGHT = 1920
 FPS = 30
-SUBTITLE_DURATION = 165  # 2분 45초 (자막/나레이션 길이)
+SUBTITLE_DURATION = 174  # 2분 54초 (자막/나레이션 길이)
 VIDEO_DURATION = 179  # 2분 59초 (전체 영상)
 
 # 자막 스타일
@@ -254,21 +254,28 @@ def main():
     for img_path in existing_images:
         img = ImageClip(img_path, duration=img_duration)
         img = img.resize((TARGET_WIDTH, TARGET_HEIGHT))
-        img = img.crossfadein(0.5).crossfadeout(0.5)
+        img = img.crossfadein(0.5)
         clips.append(img)
     
     print()
     
-    # 5. 영상 합치기
-    print("🎞️  Step 5: 영상 합치기")
+    # 5. 영상 클립 길이 조절 및 합치기
+    print("🎞️  Step 5: 영상 합치기 및 페이드 아웃 적용")
+    
+    # 마지막 이미지를 연장하여 전체 길이를 VIDEO_DURATION으로 맞춤
+    current_duration = sum(c.duration for c in clips)
+    if current_duration < VIDEO_DURATION:
+        extension = VIDEO_DURATION - current_duration
+        if len(clips) > 0:
+            clips[-1] = clips[-1].set_duration(clips[-1].duration + extension)
+
+    # 영상 합치기
     final_video = concatenate_videoclips(clips, method="compose")
     
-    # 전체 길이를 VIDEO_DURATION으로 늘림 (마지막 이미지 연장)
-    if final_video.duration < VIDEO_DURATION:
-        extension = VIDEO_DURATION - final_video.duration
-        last_img = ImageClip(existing_images[-1], duration=extension)
-        last_img = last_img.resize((TARGET_WIDTH, TARGET_HEIGHT))
-        final_video = concatenate_videoclips([final_video, last_img], method="compose")
+    # 2분 55초(175초) 부분부터 끝(179초)까지 4초 동안 서서히 어두워지며 페이드 아웃
+    fade_duration = VIDEO_DURATION - 175
+    if fade_duration > 0:
+        final_video = final_video.fadeout(fade_duration)
     
     print(f"  ✅ 영상 길이: {final_video.duration:.1f}초")
     print()
@@ -316,13 +323,73 @@ def main():
     
     if audio_clips:
         final_audio = CompositeAudioClip(audio_clips)
+        # 페이드 아웃 타임이 존재하면, 오디오에도 동일하게 페이드 아웃을 적용해줍니다 (175초 시점부터)
+        fade_duration = VIDEO_DURATION - 175
+        if fade_duration > 0:
+            final_audio = final_audio.audio_fadeout(fade_duration)
         final_video = final_video.set_audio(final_audio)
-        print(f"  ✅ 오디오 {len(audio_clips)}개 추가")
+        print(f"  ✅ 오디오 {len(audio_clips)}개 추가 (페이드아웃 반영됨)")
     
     print()
     
-    # 8. 렌더링
-    print("🚀 Step 8: 최종 렌더링")
+    # 8. 구독 유도 CTA 자막 (174~179초)
+    print("📢 Step 8: 구독/좋아요 유도 자막 추가")
+    try:
+        CTA_START = float(SUBTITLE_DURATION)  # 174초
+        CTA_END   = float(VIDEO_DURATION)     # 179초
+        cta_dur   = CTA_END - CTA_START       # 5초
+
+        CW, CH = TARGET_WIDTH, 320
+        cta_img = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
+        draw_c  = ImageDraw.Draw(cta_img)
+
+        # 반투명 배경 박스
+        try:
+            draw_c.rounded_rectangle([40, 30, CW-40, CH-30], radius=36, fill=(0, 0, 0, 185))
+        except:
+            draw_c.rectangle([40, 30, CW-40, CH-30], fill=(0, 0, 0, 185))
+
+        # 폰트 로드
+        try:
+            font_cta_main = ImageFont.truetype(font_path, 46)
+            font_cta_sub  = ImageFont.truetype(font_path, 36)
+        except:
+            font_cta_main = font_cta_sub = ImageFont.load_default()
+
+        # 1행 (흰색) - 메인 문구
+        line1 = "面白いお話をもっと聞きたい方は"
+        bbox1 = draw_c.textbbox((0, 0), line1, font=font_cta_main)
+        w1 = bbox1[2] - bbox1[0]
+        draw_c.text(((CW - w1) // 2, 55), line1, font=font_cta_main, fill=(255, 255, 255, 240))
+
+        # 2행 (황금색) - 구독/좋아요 강조
+        line2 = "チャンネル登録と いいね を"
+        bbox2 = draw_c.textbbox((0, 0), line2, font=font_cta_main)
+        w2 = bbox2[2] - bbox2[0]
+        draw_c.text(((CW - w2) // 2, 115), line2, font=font_cta_main, fill=(255, 220, 60, 255))
+
+        # 3행 (연파란색) - 정중한 마무리
+        line3 = "よろしくお願いいたします"
+        bbox3 = draw_c.textbbox((0, 0), line3, font=font_cta_sub)
+        w3 = bbox3[2] - bbox3[0]
+        draw_c.text(((CW - w3) // 2, 178), line3, font=font_cta_sub, fill=(200, 230, 255, 220))
+
+        cta_clip = (
+            ImageClip(np.array(cta_img))
+            .set_duration(cta_dur)
+            .set_start(CTA_START)
+            .set_position(("center", 0.72), relative=True)
+            .crossfadein(0.8)
+            .crossfadeout(1.0)
+        )
+        final_video = CompositeVideoClip([final_video, cta_clip]).set_duration(VIDEO_DURATION)
+        print(f"  ✅ 구독 유도 자막 추가 ({CTA_START}초 ~ {CTA_END}초)")
+    except Exception as e:
+        print(f"  ⚠️  구독 유도 자막 추가 실패: {e}")
+    print()
+
+    # 9. 렌더링
+    print("🚀 Step 9: 최종 렌더링")
     print(f"  해상도: {TARGET_WIDTH}x{TARGET_HEIGHT}")
     print(f"  FPS: {FPS}")
     print(f"  자막 길이: {SUBTITLE_DURATION}초")
@@ -330,6 +397,7 @@ def main():
     print()
     print("⏱️  렌더링 시작... (5-10분 소요)")
     print("=" * 60)
+
     
     try:
         final_video.write_videofile(
@@ -354,7 +422,7 @@ def main():
         print("🎉 영상이 성공적으로 생성되었습니다!")
         print("🎬 final_output.mp4 파일을 확인하세요!")
         print()
-        print("💡 자막은 0초 ~ 2분45초(165초)까지 표시됩니다")
+        print("💡 자막은 0초 ~ 2분54초(174초)까지 표시됩니다")
         
     except Exception as e:
         print()
