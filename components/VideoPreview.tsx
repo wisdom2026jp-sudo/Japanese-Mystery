@@ -1,12 +1,13 @@
 
 import { Play, Volume2, Image as ImageIcon } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
-import { HealingPlan, MOOD_VIDEOS } from '../types';
+import { HealingPlan, MOOD_VIDEOS, ContentLanguage } from '../types';
 
 interface VideoPreviewProps {
   plan: HealingPlan;
   userBgm: File | null;
   onBgmSelect: (file: File | null) => void;
+  language: ContentLanguage;
 }
 
 async function decodeAudioData(base64Data: string, ctx: AudioContext, sampleRate: number = 24000): Promise<AudioBuffer> {
@@ -25,7 +26,7 @@ async function decodeUserFile(file: File, ctx: AudioContext): Promise<AudioBuffe
   return await ctx.decodeAudioData(arrayBuffer);
 }
 
-export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan, userBgm, onBgmSelect }) => {
+export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan, userBgm, onBgmSelect, language }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const totalDuration = 179;
@@ -160,6 +161,11 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan, userBgm, onBgm
               </div>
             )}
             <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-red-600 px-3 py-1 rounded-full text-[10px] font-black text-white tracking-widest animate-pulse">VIRAL HOOK (FX ON)</div>
+            {/* 언어 표시 배지 */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-black text-white flex items-center gap-1.5 border border-white/20">
+              <span>{language === 'ja' ? '🇯🇵' : '🇰🇷'}</span>
+              <span>{language === 'ja' ? '日本語' : '한국어'}</span>
+            </div>
           </div>
         )}
 

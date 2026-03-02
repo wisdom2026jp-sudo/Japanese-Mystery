@@ -1,4 +1,6 @@
 
+export type ContentLanguage = 'ja' | 'ko';
+
 export interface GroundingSource {
   title?: string;
   uri?: string;

@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Loader2, Wand2, Image as ImageIcon, Zap, Laugh, Ghost, Moon, Rocket, AlertTriangle, Eye, Move, MapPin, Skull, Key, Grid, LayoutDashboard, Terminal, Info, RefreshCw } from 'lucide-react';
+import { Sparkles, Loader2, Wand2, Image as ImageIcon, Zap, Laugh, Ghost, Moon, Rocket, AlertTriangle, Eye, Move, MapPin, Skull, Key, Grid, LayoutDashboard, Terminal, Info, RefreshCw, Languages, Volume2, Play } from 'lucide-react';
 import { generateHealingPlan, generateHealingImage, generateHookImage, generateHealingAudio, generateHealingVideo } from './services/geminiService';
-import { HealingPlan, GenerationStep, VisualStyle, PersonaType, Persona, MysteryEffect, SfxType } from './types';
+import { HealingPlan, GenerationStep, VisualStyle, PersonaType, Persona, MysteryEffect, SfxType, ContentLanguage } from './types';
 import { ScriptCard } from './components/ScriptCard';
 import { VideoPreview } from './components/VideoPreview';
 import { PythonExport } from './components/PythonExport';
+import { playSfxPreview } from './utils/sfxPlayer';
 
 
 declare global {
@@ -91,12 +92,18 @@ export default function App() {
   const [userBgm, setUserBgm] = useState<File | null>(null);
   const [hasVideoKey, setHasVideoKey] = useState(false);
 
+  // 언어 선택 state (기본값: 일본어)
+  const [contentLanguage, setContentLanguage] = useState<ContentLanguage>('ja');
+
   // 프리셋 새로고침 state
   const [presetIndices, setPresetIndices] = useState<number[]>(() =>
     samplePresets(ALL_MYSTERY_PRESETS, new Set())
   );
   const [usedPresetIndices, setUsedPresetIndices] = useState<Set<number>>(() => new Set<number>());
   const [isPresetRefreshing, setIsPresetRefreshing] = useState(false);
+
+  // 현재 재생 중인 SFX
+  const [playingSfx, setPlayingSfx] = useState<SfxType | null>(null);
 
   const handleRefreshPresets = () => {
     setIsPresetRefreshing(true);
@@ -154,7 +161,8 @@ export default function App() {
       }
 
       setStep(GenerationStep.GENERATING_AUDIO);
-      const audioBase64 = await generateHealingAudio(generatedPlan.script_ja);
+      const narrationScript = contentLanguage === 'ko' ? generatedPlan.script_kr : generatedPlan.script_ja;
+      const audioBase64 = await generateHealingAudio(narrationScript);
 
       setPlan(prev => prev ? ({
         ...prev,
@@ -336,8 +344,58 @@ export default function App() {
           </div>
 
 
+          {/* ===== 언어 선택 옵션 ===== */}
           <div>
-            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">3. Master Topic (주제 입력)</label>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">
+              3. Language (자막 · 나레이션 언어)
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setContentLanguage('ja')}
+                disabled={isGenerating}
+                className={`relative flex flex-col items-center gap-2 py-4 rounded-2xl border-2 transition-all font-bold ${contentLanguage === 'ja'
+                  ? 'border-red-500 bg-red-50 shadow-md'
+                  : 'border-slate-100 bg-slate-50 hover:border-slate-300'
+                  }`}
+              >
+                <span className="text-2xl">🇯🇵</span>
+                <div className="text-center">
+                  <p className="text-xs font-black text-slate-800">日本語</p>
+                  <p className="text-[9px] text-slate-400 font-bold">일본어 (기본값)</p>
+                </div>
+                {contentLanguage === 'ja' && (
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setContentLanguage('ko')}
+                disabled={isGenerating}
+                className={`relative flex flex-col items-center gap-2 py-4 rounded-2xl border-2 transition-all font-bold ${contentLanguage === 'ko'
+                  ? 'border-blue-500 bg-blue-50 shadow-md'
+                  : 'border-slate-100 bg-slate-50 hover:border-slate-300'
+                  }`}
+              >
+                <span className="text-2xl">🇰🇷</span>
+                <div className="text-center">
+                  <p className="text-xs font-black text-slate-800">한국어</p>
+                  <p className="text-[9px] text-slate-400 font-bold">Korean</p>
+                </div>
+                {contentLanguage === 'ko' && (
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                )}
+              </button>
+            </div>
+            <p className="text-[9px] text-slate-400 font-bold mt-2">
+              {contentLanguage === 'ja'
+                ? '📌 자막 · 나레이션이 일본어로 생성됩니다'
+                : '📌 자막 · 나레이션이 한국어로 생성됩니다'}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">4. Master Topic (주제 입력)</label>
             <textarea
               rows={3}
               className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 focus:border-indigo-600 focus:bg-white transition-all text-sm font-bold p-4 resize-none"
@@ -349,7 +407,7 @@ export default function App() {
           </div>
 
           <div>
-            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">4. Viral Hook FX (영상 효과)</label>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">5. Viral Hook FX (영상 효과)</label>
             <div className="grid grid-cols-3 gap-2 mb-4">
               {[
                 { id: 'night_vision', label: '암시(暗視)', label_kr: '나이트비전', icon: Eye, color: 'text-emerald-500' },
@@ -379,7 +437,7 @@ export default function App() {
 
           {/* ===== UPDATE 1: 특수 음향 효과 (SFX) ===== */}
           <div>
-            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">5. Horror SFX (공포 음향 효과)</label>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">6. Horror SFX (공포 음향 효과)</label>
             <div className="grid grid-cols-2 gap-2 mb-2">
               {([
                 { id: 'horror_noise', label: '🔴 恐怖ノイズ', label_kr: '공포 노이즈' },
@@ -392,28 +450,52 @@ export default function App() {
                   key={sfx.id}
                   type="button"
                   onClick={() => {
+                    // 선택 / 해제 토글
                     const next = selectedSfx.includes(sfx.id)
                       ? selectedSfx.filter(s => s !== sfx.id)
                       : [...selectedSfx, sfx.id];
                     setSelectedSfx(next);
+                    // 미리듣기 재생
+                    setPlayingSfx(sfx.id);
+                    playSfxPreview(sfx.id);
+                    // SFX 최대 지속시간(3초) 후 아이콘 복원
+                    setTimeout(() => setPlayingSfx(prev => prev === sfx.id ? null : prev), 3200);
                   }}
                   disabled={isGenerating}
-                  className={`py-2 px-3 rounded-xl border-2 flex flex-col items-start gap-0.5 transition-all text-left ${selectedSfx.includes(sfx.id)
-                    ? 'border-red-500 bg-red-50 shadow-md'
-                    : 'border-slate-100 bg-slate-50 hover:border-slate-300'
+                  className={`relative py-2 px-3 rounded-xl border-2 flex flex-col items-start gap-0.5 transition-all text-left group overflow-hidden ${selectedSfx.includes(sfx.id)
+                      ? 'border-red-500 bg-red-50 shadow-md'
+                      : 'border-slate-100 bg-slate-50 hover:border-slate-300'
                     }`}
                 >
-                  <span className="text-[10px] font-black">{sfx.label}</span>
+                  {/* 재생 중 웨이브 애니메이션 배경 */}
+                  {playingSfx === sfx.id && (
+                    <span className="absolute inset-0 bg-red-500/10 animate-pulse rounded-xl pointer-events-none" />
+                  )}
+                  <div className="flex items-center justify-between w-full">
+                    <span className="text-[10px] font-black">{sfx.label}</span>
+                    {/* 미리듣기 아이콘 */}
+                    <span
+                      className={`ml-1 shrink-0 transition-all ${playingSfx === sfx.id ? 'text-red-500' : 'text-slate-300 group-hover:text-slate-500'
+                        }`}
+                    >
+                      {playingSfx === sfx.id
+                        ? <Loader2 size={11} className="animate-spin" />
+                        : <Play size={10} className="fill-current" />}
+                    </span>
+                  </div>
                   <span className="text-[9px] opacity-60 font-medium">{sfx.label_kr}</span>
                 </button>
               ))}
             </div>
-            <p className="text-[9px] text-slate-400 font-bold mt-1">✨ 선택한 SFX가 장면 전환 시 자동 삽입됩니다</p>
+            <div className="flex items-center gap-1.5 mt-1">
+              <Volume2 size={10} className="text-slate-400" />
+              <p className="text-[9px] text-slate-400 font-bold">클릭하면 미리듣기 + 선택이 동시에 됩니다 ▶</p>
+            </div>
           </div>
 
           {/* ===== UPDATE 3: 훅 문구 커스터마이징 ===== */}
           <div>
-            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">6. Hook Title Text (훅 타이틀 문구)</label>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">7. Hook Title Text (훅 타이틀 문구)</label>
             <div className="flex items-center gap-3 p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus-within:border-red-500 transition-all">
               <div className="p-2 bg-red-100 rounded-xl">
                 <Skull size={16} className="text-red-600" />
@@ -433,7 +515,7 @@ export default function App() {
           </div>
 
           <div>
-            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">7. Background Music (BGM 업로드)</label>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">8. Background Music (BGM 업로드)</label>
             <label className={`flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition-all ${userBgm ? 'bg-white border-emerald-500' : 'bg-white border-slate-200 hover:border-amber-400'
               }`}>
               <div className={`p-3 rounded-xl ${userBgm ? 'bg-emerald-100' : 'bg-amber-100'}`}>
@@ -548,7 +630,7 @@ export default function App() {
 
                 {activeTab === 'preview' ? (
                   <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <ScriptCard plan={plan} personaType={selectedPersona} />
+                    <ScriptCard plan={plan} personaType={selectedPersona} language={contentLanguage} />
                     <div className="mt-10 bg-white border border-slate-100 rounded-[2.5rem] p-10 shadow-sm">
                       <h3 className="text-xl font-black text-slate-900 mb-8 flex items-center gap-3">
                         <Grid size={24} className="text-indigo-600" />
@@ -624,7 +706,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <PythonExport plan={plan} userBgm={userBgm} onAnimateHook={handleAnimateHook} isAnimatingHook={step === GenerationStep.GENERATING_HOOK_VIDEO} />
+                    <PythonExport plan={plan} userBgm={userBgm} onAnimateHook={handleAnimateHook} isAnimatingHook={step === GenerationStep.GENERATING_HOOK_VIDEO} language={contentLanguage} />
                   </div>
                 )}
               </div>
@@ -634,6 +716,7 @@ export default function App() {
                     plan={plan}
                     userBgm={userBgm}
                     onBgmSelect={setUserBgm}
+                    language={contentLanguage}
                   />
                 </div>
               </div>

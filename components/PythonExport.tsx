@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { HealingPlan } from '../types';
+import { HealingPlan, ContentLanguage } from '../types';
 import { Archive, Loader2, Music, CheckCircle2, ShieldCheck, Cpu, Sparkles, BookOpen } from 'lucide-react';
 import JSZip from 'jszip';
 
@@ -9,6 +9,7 @@ interface PythonExportProps {
     userBgm: File | null;
     onAnimateHook: () => void;
     isAnimatingHook: boolean;
+    language: ContentLanguage;
 }
 
 function getWavBytes(base64Data: string, sampleRate: number): Uint8Array {
@@ -71,9 +72,14 @@ const generateSRT = (script: string, durationSeconds: number): string => {
     return srt;
 };
 
-export const PythonExport: React.FC<PythonExportProps> = ({ plan, userBgm, onAnimateHook, isAnimatingHook }) => {
+export const PythonExport: React.FC<PythonExportProps> = ({ plan, userBgm, onAnimateHook, isAnimatingHook, language }) => {
     const [isZipping, setIsZipping] = useState(false);
     const isReady = !!plan.hookVideoUrl && !!userBgm;
+    const isJa = language === 'ja';
+    // 선택된 언어의 나레이션 스크립트
+    const narrationScript = isJa ? plan.script_ja : plan.script_kr;
+    // 자막 파일명
+    const subtitleFilename = isJa ? 'subtitles_ja.srt' : 'subtitles_ko.srt';
 
     const renderScriptContent = `# ==========================================
 # Healing Shorts Auto-Gen: V37.1 (NumPy 2.0 Patch)
@@ -325,7 +331,7 @@ def main():
     final_video = final_video.set_audio(final_audio)
 
     subtitle_clips = []
-    if os.path.exists("subtitles_ja.srt"):
+    if os.path.exists("${subtitleFilename}"):
         def create_pill_sub(txt, dur):
             W, H = TARGET_W, 300
             f_p = "SpoqaHanSansJPBold.ttf" if os.path.exists("SpoqaHanSansJPBold.ttf") else "arial.ttf"
@@ -370,7 +376,7 @@ def main():
             return ImageClip(np.array(img)).set_duration(dur)
 
         try:
-            with open("subtitles_ja.srt", 'r', encoding='utf-8') as f: content = f.read().strip()
+            with open("${subtitleFilename}", 'r', encoding='utf-8') as f: content = f.read().strip()
             blocks = re.split(r'\\n\\n+', content)
             for b in blocks:
                 lines = b.strip().split('\\n')
@@ -500,7 +506,8 @@ ${plan.tags.join(', ')}
                 const pcmLength = wavData.length - 44;
                 const audioDuration = pcmLength / 48000;
                 root.file("narration.wav", wavData);
-                root.file("subtitles_ja.srt", generateSRT(plan.script_ja, audioDuration));
+                // 선택 언어 스크립트로 자막 생성
+                root.file(subtitleFilename, generateSRT(narrationScript, audioDuration));
             }
             if (plan.hookVideoUrl) {
                 const videoBlob = await (await fetch(plan.hookVideoUrl)).blob();
