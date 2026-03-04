@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Loader2, Wand2, Image as ImageIcon, Zap, Laugh, Ghost, Moon, Rocket, AlertTriangle, Eye, Move, MapPin, Skull, Key, Grid, LayoutDashboard, Terminal, Info, RefreshCw, Languages, Volume2, Play } from 'lucide-react';
+import { Sparkles, Loader2, Wand2, Image as ImageIcon, Zap, Laugh, Ghost, Moon, Rocket, AlertTriangle, Eye, Move, MapPin, Skull, Key, Grid, LayoutDashboard, Terminal, Info, RefreshCw, Languages, Volume2, Play, Youtube } from 'lucide-react';
 import { generateHealingPlan, generateHealingImage, generateHookImage, generateHealingAudio, generateHealingVideo } from './services/geminiService';
 import { HealingPlan, GenerationStep, VisualStyle, PersonaType, Persona, MysteryEffect, SfxType, ContentLanguage } from './types';
 import { ScriptCard } from './components/ScriptCard';
 import { VideoPreview } from './components/VideoPreview';
 import { PythonExport } from './components/PythonExport';
 import { playSfxPreview } from './utils/sfxPlayer';
+import YoutubeUploadModal from './components/YoutubeUploadModal';
 
 
 declare global {
@@ -256,6 +257,7 @@ export default function App() {
 
   const [editingIndex, setEditingIndex] = useState<{ index: number | 'hook', prompt: string } | null>(null);
 
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const isGenerating = step !== GenerationStep.IDLE && step !== GenerationStep.COMPLETED && step !== GenerationStep.ERROR;
 
   return (
@@ -722,6 +724,20 @@ export default function App() {
                   />
                 </div>
               </div>
+
+              {/* ── YouTube 업로드 버튼 ── */}
+              <div className="mt-8 p-5 bg-[#0D0D18] border border-[#2A1A1A] rounded-3xl flex items-center justify-between">
+                <div>
+                  <p className="text-[#E8DDD0] font-black text-sm">🎬 YouTube에 게시하기</p>
+                  <p className="text-[#6B5A5A] text-xs font-bold mt-0.5">render.py로 생성된 영상을 예약 또는 즉시 업로드</p>
+                </div>
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  className="flex items-center gap-2 px-5 py-3 bg-red-800 hover:bg-red-700 text-white font-black rounded-xl text-sm transition-all shadow-lg shadow-red-950/50"
+                >
+                  <Youtube size={18} /> YouTube 업로드
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-32 text-center">
@@ -737,6 +753,14 @@ export default function App() {
           )}
         </div>
       </main>
+
+      {/* ── YouTube 업로드 모달 ── */}
+      {showUploadModal && plan && (
+        <YoutubeUploadModal
+          plan={plan}
+          onClose={() => setShowUploadModal(false)}
+        />
+      )}
 
       {/* Prompt Edit Modal */}
       {editingIndex !== null && (
