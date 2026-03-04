@@ -24,10 +24,10 @@ interface ExtendedPersona extends Persona {
 }
 
 const PERSONAS: ExtendedPersona[] = [
-  { id: 'success', name: '成功への刺激', name_kr: '성공의 자극', icon: 'Rocket', description: '동기부여 및 성공학', color: 'bg-yellow-50 text-yellow-700 border-yellow-200', label: 'Success' },
-  { id: 'mystery', name: '都市伝説の真実', name_kr: '도시전설의 진실', icon: 'Ghost', description: '호기심과 충격적 진상', color: 'bg-slate-100 text-slate-700 border-slate-300', label: 'Mystery' },
-  { id: 'dopamine', name: '爆笑スナック', name_kr: '폭소 스낵', icon: 'Laugh', description: '공감 일상 유머', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'Comedy' },
-  { id: 'healer', name: '真夜中の癒やし', name_kr: '한밤중의 힐링', icon: 'Moon', description: '위로와 감성 콘텐츠', color: 'bg-indigo-50 text-indigo-700 border-indigo-200', label: 'Healing' }
+  { id: 'success', name: '成功への刺激', name_kr: '성공의 자극', icon: 'Rocket', description: '동기부여 및 성공학', color: 'bg-yellow-950 text-yellow-400 border-yellow-900', label: 'Success' },
+  { id: 'mystery', name: '都市伝説の真実', name_kr: '도시전설의 진실', icon: 'Ghost', description: '호기심과 충격적 진상', color: 'bg-red-950 text-red-400 border-red-900', label: 'Mystery' },
+  { id: 'dopamine', name: '爆笑スナック', name_kr: '폭소 스낵', icon: 'Laugh', description: '공감 일상 유머', color: 'bg-emerald-950 text-emerald-400 border-emerald-900', label: 'Comedy' },
+  { id: 'healer', name: '真夜中の癒やし', name_kr: '한밤중의 힐링', icon: 'Moon', description: '위로와 감성 콘텐츠', color: 'bg-purple-950 text-purple-400 border-purple-900', label: 'Healing' }
 ];
 
 const ALL_MYSTERY_PRESETS = [
@@ -259,18 +259,18 @@ export default function App() {
   const isGenerating = step !== GenerationStep.IDLE && step !== GenerationStep.COMPLETED && step !== GenerationStep.ERROR;
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
-      <aside className="w-full md:w-[420px] bg-white border-r border-slate-200 p-8 flex flex-col z-10 shadow-xl overflow-y-auto custom-scrollbar">
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#0A0A12]">
+      <aside className="w-full md:w-[420px] bg-[#0D0D18] border-r border-[#2A1A1A] p-8 flex flex-col z-10 shadow-2xl shadow-black/60 overflow-y-auto custom-scrollbar">
         <div className="mb-10">
-          <div className="flex items-center gap-3 text-indigo-600 mb-2">
-            <div className="p-2 bg-indigo-600 rounded-xl">
-              <Sparkles className="w-6 h-6 text-white" />
+          <div className="flex items-center gap-3 text-red-500 mb-2">
+            <div className="p-2 bg-red-900 rounded-xl animate-flicker">
+              <Sparkles className="w-6 h-6 text-red-300" />
             </div>
             <span className="font-black text-2xl tracking-tighter uppercase">ミステリーファクトリー</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 bg-slate-900 text-white text-[9px] font-black rounded uppercase tracking-widest">Mystery Factory Pro</span>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">V3.6 JP Mystery Lab</p>
+            <span className="px-2 py-0.5 bg-red-950 text-red-300 text-[9px] font-black rounded uppercase tracking-widest border border-red-900">Mystery Factory Pro</span>
+            <p className="text-[#6B4A4A] text-[10px] font-bold uppercase tracking-widest">V3.6 JP Mystery Lab</p>
           </div>
         </div>
 
@@ -287,17 +287,17 @@ export default function App() {
                   type="button"
                   onClick={() => setSelectedPersona(p.id)}
                   disabled={isGenerating}
-                  className={`p-3 rounded-2xl border-2 text-left transition-all relative overflow-hidden group ${selectedPersona === p.id ? `border-indigo-600 shadow-lg ${p.color}` : 'border-slate-100 bg-slate-50 hover:border-slate-300'
+                  className={`p-3 rounded-2xl border-2 text-left transition-all relative overflow-hidden group ${selectedPersona === p.id ? `border-red-700 shadow-lg shadow-red-950 ${p.color}` : 'border-[#1E1E2C] bg-[#12121E] hover:border-[#3A1A1A]'
                     }`}
                   title={p.description}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <div className="p-2 bg-[#1A1A2A] rounded-lg">
                       {p.id === 'success' ? <Rocket size={16} /> : p.id === 'mystery' ? <Ghost size={16} /> : p.id === 'dopamine' ? <Laugh size={16} /> : <Moon size={16} />}
                     </div>
                   </div>
                   <p className="text-xs font-black mb-1">{p.name}</p>
-                  <p className="text-[10px] text-indigo-500 font-bold mb-1">[{p.name_kr}]</p>
+                  <p className="text-[10px] text-red-400 font-bold mb-1">[{p.name_kr}]</p>
                   <p className="text-[9px] opacity-60 font-medium leading-tight">{p.description}</p>
                 </button>
               ))}
@@ -313,8 +313,8 @@ export default function App() {
                 disabled={isGenerating || isPresetRefreshing}
                 title={`새로운 괴담 8개 보기 (총 ${ALL_MYSTERY_PRESETS.length}개 풀)`}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border-2 text-[10px] font-black transition-all ${isPresetRefreshing
-                  ? 'border-indigo-300 bg-indigo-50 text-indigo-300 cursor-wait'
-                  : 'border-indigo-500 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 active:scale-95'
+                  ? 'border-red-900 bg-red-950/30 text-red-900 cursor-wait'
+                  : 'border-red-700 bg-red-950/40 text-red-400 hover:bg-red-800 hover:text-white hover:border-red-700 active:scale-95'
                   }`}
               >
                 <RefreshCw size={11} className={isPresetRefreshing ? 'animate-spin' : ''} />
@@ -328,14 +328,14 @@ export default function App() {
                   type="button"
                   onClick={() => { setTopic(p.query); setSelectedPersona('mystery'); }}
                   disabled={isGenerating}
-                  className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:border-indigo-600 hover:shadow-md transition-all text-left flex items-center justify-between group"
+                  className="px-4 py-3 bg-[#12121E] border border-[#2A1A1A] rounded-xl text-xs font-bold text-[#C0B0A0] hover:border-red-700 hover:shadow-md hover:shadow-red-950 transition-all text-left flex items-center justify-between group"
                 >
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
                       <MapPin size={12} className="text-red-500" />
                       <span>{p.title}</span>
                     </div>
-                    <span className="text-[10px] text-slate-400 ml-5">{p.title_kr}</span>
+                    <span className="text-[10px] text-[#6B5A5A] ml-5">{p.title_kr}</span>
                   </div>
                   <Sparkles size={12} className="text-indigo-300 group-hover:text-indigo-600" />
                 </button>
@@ -355,14 +355,14 @@ export default function App() {
                 onClick={() => setContentLanguage('ja')}
                 disabled={isGenerating}
                 className={`relative flex flex-col items-center gap-2 py-4 rounded-2xl border-2 transition-all font-bold ${contentLanguage === 'ja'
-                  ? 'border-red-500 bg-red-50 shadow-md'
-                  : 'border-slate-100 bg-slate-50 hover:border-slate-300'
+                  ? 'border-red-700 bg-red-950/40 shadow-md shadow-red-950'
+                  : 'border-[#1E1E2C] bg-[#12121E] hover:border-[#3A1A1A]'
                   }`}
               >
                 <span className="text-2xl">🇯🇵</span>
                 <div className="text-center">
-                  <p className="text-xs font-black text-slate-800">日本語</p>
-                  <p className="text-[9px] text-slate-400 font-bold">일본어 (기본값)</p>
+                  <p className="text-xs font-black text-[#E8DDD0]">日本語</p>
+                  <p className="text-[9px] text-[#6B5A5A] font-bold">일본어 (기본값)</p>
                 </div>
                 {contentLanguage === 'ja' && (
                   <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
@@ -373,21 +373,21 @@ export default function App() {
                 onClick={() => setContentLanguage('ko')}
                 disabled={isGenerating}
                 className={`relative flex flex-col items-center gap-2 py-4 rounded-2xl border-2 transition-all font-bold ${contentLanguage === 'ko'
-                  ? 'border-blue-500 bg-blue-50 shadow-md'
-                  : 'border-slate-100 bg-slate-50 hover:border-slate-300'
+                  ? 'border-blue-700 bg-blue-950/40 shadow-md shadow-blue-950'
+                  : 'border-[#1E1E2C] bg-[#12121E] hover:border-[#1A2A3A]'
                   }`}
               >
                 <span className="text-2xl">🇰🇷</span>
                 <div className="text-center">
-                  <p className="text-xs font-black text-slate-800">한국어</p>
-                  <p className="text-[9px] text-slate-400 font-bold">Korean</p>
+                  <p className="text-xs font-black text-[#E8DDD0]">한국어</p>
+                  <p className="text-[9px] text-[#6B5A5A] font-bold">Korean</p>
                 </div>
                 {contentLanguage === 'ko' && (
                   <span className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
                 )}
               </button>
             </div>
-            <p className="text-[9px] text-slate-400 font-bold mt-2">
+            <p className="text-[9px] text-[#6B5A5A] font-bold mt-2">
               {contentLanguage === 'ja'
                 ? '📌 자막 · 나레이션이 일본어로 생성됩니다'
                 : '📌 자막 · 나레이션이 한국어로 생성됩니다'}
@@ -398,7 +398,7 @@ export default function App() {
             <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">4. Master Topic (주제 입력)</label>
             <textarea
               rows={3}
-              className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 focus:border-indigo-600 focus:bg-white transition-all text-sm font-bold p-4 resize-none"
+              className="w-full rounded-2xl border-2 border-[#1E1E2C] bg-[#0F0F1A] text-[#E8DDD0] placeholder-[#4A3A3A] focus:border-red-700 focus:bg-[#12121E] transition-all text-sm font-bold p-4 resize-none"
               placeholder="쇼츠의 핵심 주제를 자유롭게 입력하세요 (한글/일어 가능)..."
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
@@ -424,10 +424,10 @@ export default function App() {
                     setSelectedEffects(next as MysteryEffect[]);
                   }}
                   disabled={isGenerating}
-                  className={`py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${selectedEffects.includes(fx.id as MysteryEffect) ? 'border-indigo-600 bg-indigo-50 shadow-md' : 'border-slate-100 bg-slate-50'}`}
+                  className={`py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${selectedEffects.includes(fx.id as MysteryEffect) ? 'border-red-700 bg-red-950/40 shadow-md shadow-red-950' : 'border-[#1E1E2C] bg-[#12121E]'}`}
                   title={fx.label_kr}
                 >
-                  <fx.icon size={16} className={selectedEffects.includes(fx.id as MysteryEffect) ? fx.color : 'text-slate-400'} />
+                  <fx.icon size={16} className={selectedEffects.includes(fx.id as MysteryEffect) ? fx.color : 'text-[#4A4A5A]'} />
                   <span className="text-[9px] font-black">{fx.label}</span>
                   <span className="text-[8px] opacity-50 font-bold">{fx.label_kr}</span>
                 </button>
@@ -463,8 +463,8 @@ export default function App() {
                   }}
                   disabled={isGenerating}
                   className={`relative py-2 px-3 rounded-xl border-2 flex flex-col items-start gap-0.5 transition-all text-left group overflow-hidden ${selectedSfx.includes(sfx.id)
-                      ? 'border-red-500 bg-red-50 shadow-md'
-                      : 'border-slate-100 bg-slate-50 hover:border-slate-300'
+                    ? 'border-red-700 bg-red-950/40 shadow-md shadow-red-950'
+                    : 'border-[#1E1E2C] bg-[#12121E] hover:border-[#3A1A1A]'
                     }`}
                 >
                   {/* 재생 중 웨이브 애니메이션 배경 */}
@@ -496,29 +496,29 @@ export default function App() {
           {/* ===== UPDATE 3: 훅 문구 커스터마이징 ===== */}
           <div>
             <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">7. Hook Title Text (훅 타이틀 문구)</label>
-            <div className="flex items-center gap-3 p-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus-within:border-red-500 transition-all">
-              <div className="p-2 bg-red-100 rounded-xl">
-                <Skull size={16} className="text-red-600" />
+            <div className="flex items-center gap-3 p-3 bg-[#0F0F1A] border-2 border-[#1E1E2C] rounded-2xl focus-within:border-red-700 transition-all">
+              <div className="p-2 bg-red-950 rounded-xl">
+                <Skull size={16} className="text-red-400" />
               </div>
               <input
                 type="text"
                 value={hookText}
                 onChange={(e) => setHookText(e.target.value)}
                 disabled={isGenerating}
-                className="flex-1 bg-transparent text-sm font-black text-slate-900 outline-none"
+                className="flex-1 bg-transparent text-sm font-black text-[#E8DDD0] outline-none"
                 placeholder="都市伝説"
                 maxLength={6}
               />
-              <span className="text-[9px] text-slate-400 font-bold shrink-0">최대 6자</span>
+              <span className="text-[9px] text-[#6B5A5A] font-bold shrink-0">최대 6자</span>
             </div>
             <p className="text-[9px] text-slate-400 font-bold mt-1">📌 훅 영상 좌측에 세로로 표시되는 타이틀 문구</p>
           </div>
 
           <div>
             <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">8. Background Music (BGM 업로드)</label>
-            <label className={`flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition-all ${userBgm ? 'bg-white border-emerald-500' : 'bg-white border-slate-200 hover:border-amber-400'
+            <label className={`flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition-all ${userBgm ? 'bg-[#0A1210] border-emerald-700' : 'bg-[#12121E] border-[#1E1E2C] hover:border-amber-700'
               }`}>
-              <div className={`p-3 rounded-xl ${userBgm ? 'bg-emerald-100' : 'bg-amber-100'}`}>
+              <div className={`p-3 rounded-xl ${userBgm ? 'bg-emerald-950' : 'bg-amber-950'}`}>
                 <Sparkles size={20} className={userBgm ? 'text-emerald-600' : 'text-amber-600'} />
               </div>
               <div className="flex-1">
@@ -544,7 +544,7 @@ export default function App() {
           <button
             type="submit"
             disabled={isGenerating || !topic}
-            className={`w-full py-5 rounded-2xl flex items-center justify-center gap-3 font-black text-lg transition-all shadow-xl active:scale-[0.98] ${isGenerating ? 'bg-slate-200 text-slate-500' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+            className={`w-full py-5 rounded-2xl flex items-center justify-center gap-3 font-black text-lg transition-all shadow-xl shadow-red-950/50 active:scale-[0.98] btn-mystery ${isGenerating ? 'bg-[#1A1A28] text-[#4A4A5A] shadow-none' : 'bg-red-800 text-white hover:bg-red-700'}`}
           >
             {isGenerating ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Wand2 className="w-6 h-6" /><span>AI GENERATE</span></>}
           </button>
@@ -560,19 +560,19 @@ export default function App() {
                 <LayoutDashboard className="text-indigo-600" size={24} />
               </div>
               <div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">Production Center</h1>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Current Step: <span className="text-indigo-600">{step}</span></p>
+                <h1 className="text-2xl font-black text-[#E8DDD0] tracking-tight">Production Center</h1>
+                <p className="text-xs font-bold text-[#6B5A5A] uppercase tracking-widest">Current Step: <span className="text-red-500">{step}</span></p>
               </div>
             </div>
             {!hasVideoKey && (
-              <button onClick={() => window.aistudio?.openSelectKey()} className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-xs font-black animate-pulse shadow-sm">
+              <button onClick={() => window.aistudio?.openSelectKey()} className="flex items-center gap-2 px-4 py-2 bg-amber-950 border border-amber-800 text-amber-400 rounded-xl text-xs font-black animate-pulse shadow-sm">
                 <Key size={14} /> Veo Activation 필수
               </button>
             )}
           </div>
 
           {isGenerating && step === GenerationStep.GENERATING_IMAGE && (
-            <div className="mb-10 bg-indigo-600 p-6 rounded-3xl shadow-xl flex items-center justify-between text-white overflow-hidden relative">
+            <div className="mb-10 bg-red-900 p-6 rounded-3xl shadow-xl flex items-center justify-between text-white overflow-hidden relative border border-red-800">
               <div className="relative z-10 flex items-center gap-6">
                 <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-md">
                   <ImageIcon className="animate-pulse" size={28} />
@@ -604,7 +604,7 @@ export default function App() {
           )}
 
           {error && (
-            <div className="mb-10 p-6 bg-red-50 border-2 border-red-100 rounded-3xl text-red-600 flex items-start gap-4 shadow-lg">
+            <div className="mb-10 p-6 bg-red-950/60 border-2 border-red-900 rounded-3xl text-red-400 flex items-start gap-4 shadow-lg">
               <AlertTriangle className="shrink-0 mt-1" size={24} />
               <div>
                 <p className="font-black text-lg mb-1">System Alert</p>
@@ -619,11 +619,11 @@ export default function App() {
           {plan ? (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
               <div className="lg:col-span-8 space-y-10">
-                <div className="flex p-1.5 bg-white border border-slate-200 rounded-2xl w-fit shadow-sm">
-                  <button onClick={() => setActiveTab('preview')} className={`px-8 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'preview' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>
+                <div className="flex p-1.5 bg-[#12121E] border border-[#1E1E2C] rounded-2xl w-fit shadow-sm">
+                  <button onClick={() => setActiveTab('preview')} className={`px-8 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'preview' ? 'bg-red-800 text-white shadow-lg shadow-red-950' : 'text-[#6B5A5A] hover:text-[#9B8A7A]'}`}>
                     <LayoutDashboard size={18} /> DASHBOARD
                   </button>
-                  <button onClick={() => setActiveTab('code')} className={`px-8 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'code' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>
+                  <button onClick={() => setActiveTab('code')} className={`px-8 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'code' ? 'bg-red-800 text-white shadow-lg shadow-red-950' : 'text-[#6B5A5A] hover:text-[#9B8A7A]'}`}>
                     <Terminal size={18} /> EXPORT ENGINE
                   </button>
                 </div>
@@ -631,15 +631,15 @@ export default function App() {
                 {activeTab === 'preview' ? (
                   <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <ScriptCard plan={plan} personaType={selectedPersona} language={contentLanguage} />
-                    <div className="mt-10 bg-white border border-slate-100 rounded-[2.5rem] p-10 shadow-sm">
-                      <h3 className="text-xl font-black text-slate-900 mb-8 flex items-center gap-3">
-                        <Grid size={24} className="text-indigo-600" />
+                    <div className="mt-10 bg-[#0E0E1A] border border-[#1E1E2C] rounded-[2.5rem] p-10 shadow-lg">
+                      <h3 className="text-xl font-black text-[#E8DDD0] mb-8 flex items-center gap-3">
+                        <Grid size={24} className="text-red-500" />
                         Storyboard Sequence (2K High-Res)
                       </h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {plan.hookImageUrl && (
                           <div className="space-y-3">
-                            <div className="aspect-[9/16] rounded-3xl bg-slate-100 overflow-hidden relative group border-4 border-indigo-600 shadow-xl">
+                            <div className="aspect-[9/16] rounded-3xl bg-[#1A1A28] overflow-hidden relative group border-4 border-red-800 shadow-xl shadow-red-950/50">
                               <img src={plan.hookImageUrl} className="w-full h-full object-cover" />
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
                                 <button
@@ -657,22 +657,22 @@ export default function App() {
                                   <Zap size={20} />
                                 </button>
                               </div>
-                              <div className="absolute top-4 left-4 bg-indigo-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">Master Hook</div>
+                              <div className="absolute top-4 left-4 bg-red-800 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">Master Hook</div>
                             </div>
-                            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                              <p className="text-[10px] text-slate-500 font-bold mb-1 uppercase tracking-tighter line-clamp-2" title={plan.hook_image_prompt}>
+                            <div className="bg-[#12121E] p-3 rounded-2xl border border-[#1E1E2C]">
+                              <p className="text-[10px] text-[#6B5A5A] font-bold mb-1 uppercase tracking-tighter line-clamp-2" title={plan.hook_image_prompt}>
                                 {plan.hook_image_prompt}
                               </p>
                               <div className="flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
-                                <span className="text-[9px] font-black text-indigo-600">STRICT 9:16 READY</span>
+                                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                                <span className="text-[9px] font-black text-red-500">STRICT 9:16 READY</span>
                               </div>
                             </div>
                           </div>
                         )}
                         {plan.storyImageUrls?.map((url, i) => (
                           <div key={i} className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ animationDelay: `${i * 50}ms` }}>
-                            <div className="aspect-[9/16] rounded-3xl bg-slate-100 overflow-hidden relative group border-2 border-slate-100 hover:border-indigo-400 transition-all shadow-md">
+                            <div className="aspect-[9/16] rounded-3xl bg-[#1A1A28] overflow-hidden relative group border-2 border-[#1E1E2C] hover:border-red-700 transition-all shadow-md">
                               <img src={url} className="w-full h-full object-cover" />
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
                                 <button
@@ -690,13 +690,13 @@ export default function App() {
                               </div>
                               <div className="absolute top-4 right-4 bg-black/70 text-white text-[10px] px-3 py-1 rounded-full font-black backdrop-blur-md border border-white/20">SCENE #{i + 1}</div>
                             </div>
-                            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                              <p className="text-[10px] text-slate-500 font-bold mb-1 uppercase tracking-tighter line-clamp-2" title={plan.story_image_prompts[i]}>
+                            <div className="bg-[#12121E] p-3 rounded-2xl border border-[#1E1E2C]">
+                              <p className="text-[10px] text-[#6B5A5A] font-bold mb-1 uppercase tracking-tighter line-clamp-2" title={plan.story_image_prompts[i]}>
                                 {plan.story_image_prompts[i]}
                               </p>
                               <div className="flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
-                                <span className="text-[9px] font-black text-slate-500">2K CINEMATIC VER.</span>
+                                <span className="w-1.5 h-1.5 bg-[#3A2A2A] rounded-full"></span>
+                                <span className="text-[9px] font-black text-[#6B5A5A]">2K CINEMATIC VER.</span>
                               </div>
                             </div>
                           </div>
@@ -723,11 +723,11 @@ export default function App() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-32 text-center">
-              <div className="w-24 h-24 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-8 border border-slate-100">
-                <Zap size={40} className="text-indigo-600" />
+              <div className="w-24 h-24 bg-[#12121E] rounded-3xl shadow-2xl flex items-center justify-center mb-8 border border-[#2A1A1A] animate-ghost-float animate-red-glow">
+                <Ghost size={40} className="text-red-500" />
               </div>
-              <h2 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">Pro Studio Ready</h2>
-              <p className="text-slate-400 font-bold max-w-md leading-relaxed">
+              <h2 className="text-3xl font-black text-[#E8DDD0] mb-4 tracking-tight animate-flicker">Pro Studio Ready</h2>
+              <p className="text-[#6B5A5A] font-bold max-w-md leading-relaxed">
                 왼쪽 패널에서 페르소나와 주제를 선택하세요.<br />
                 일본 시장에 최적화된 기획과 2K 고화질 영상을 자동 생성합니다.
               </p>
@@ -738,9 +738,9 @@ export default function App() {
 
       {/* Prompt Edit Modal */}
       {editingIndex !== null && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="bg-indigo-600 p-8 text-white">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#0E0E1A] border border-[#2A1A1A] w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="bg-red-900 p-8 text-white border-b border-red-800">
               <div className="flex items-center gap-3 mb-2">
                 <Sparkles size={24} />
                 <h3 className="text-xl font-black">Edit Image Prompt</h3>
@@ -757,7 +757,7 @@ export default function App() {
               <div>
                 <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">Modify Prompt (상세 설명 입력)</label>
                 <textarea
-                  className="w-full h-40 p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold focus:border-indigo-600 focus:bg-white transition-all outline-none resize-none"
+                  className="w-full h-40 p-5 bg-[#0F0F1A] border-2 border-[#1E1E2C] text-[#E8DDD0] placeholder-[#4A3A3A] rounded-2xl text-sm font-bold focus:border-red-700 focus:bg-[#12121E] transition-all outline-none resize-none"
                   value={editingIndex.prompt}
                   onChange={(e) => setEditingIndex({ ...editingIndex, prompt: e.target.value })}
                   placeholder="예: 빗속에 서 있는 일본 아이, 공포스러운 눈빛, 9:16 세로형..."
@@ -766,7 +766,7 @@ export default function App() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setEditingIndex(null)}
-                  className="flex-1 py-4 rounded-2xl bg-slate-100 text-slate-600 font-black hover:bg-slate-200 transition-all"
+                  className="flex-1 py-4 rounded-2xl bg-[#1A1A28] text-[#8B7B6B] font-black hover:bg-[#222232] transition-all"
                 >
                   CANCEL
                 </button>
@@ -775,7 +775,7 @@ export default function App() {
                     handleRegenerateImage(editingIndex.index, editingIndex.prompt);
                     setEditingIndex(null);
                   }}
-                  className="flex-2 py-4 px-8 rounded-2xl bg-indigo-600 text-white font-black hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                  className="flex-2 py-4 px-8 rounded-2xl bg-red-800 text-white font-black hover:bg-red-700 shadow-lg shadow-red-950 transition-all flex items-center justify-center gap-2"
                 >
                   <Wand2 size={20} />
                   REGENERATE NOW
