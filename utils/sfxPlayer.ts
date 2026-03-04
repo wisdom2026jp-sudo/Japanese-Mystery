@@ -126,11 +126,20 @@ const SFX_DURATION: Record<SfxType, number> = {
  * 지정한 SFX 타입을 즉시 합성하여 재생합니다.
  * @param sfxType  재생할 SFX 종류
  */
-export function playSfxPreview(sfxType: SfxType): void {
+export async function playSfxPreview(sfxType: SfxType): Promise<void> {
     try {
         const ctx = getCtx();
-        // suspended 상태면 resume (브라우저 자동재생 정책)
-        if (ctx.state === 'suspended') ctx.resume();
+
+        // ✅ 브라우저 자동재생 정책: suspended 상태면 반드시 await로 resume
+        if (ctx.state === 'suspended') {
+            await ctx.resume();
+        }
+
+        // AudioContext가 아직 running 상태가 아니면 중단
+        if (ctx.state !== 'running') {
+            console.warn('[sfxPlayer] AudioContext를 활성화할 수 없습니다. 브라우저 정책으로 차단됨.');
+            return;
+        }
 
         const dur = SFX_DURATION[sfxType];
         const samples = Math.round(dur * SAMPLE_RATE);

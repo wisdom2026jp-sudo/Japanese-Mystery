@@ -457,7 +457,9 @@ export default function App() {
                     setSelectedSfx(next);
                     // 미리듣기 재생
                     setPlayingSfx(sfx.id);
-                    playSfxPreview(sfx.id);
+                    playSfxPreview(sfx.id).then(() => {
+                      // 재생 완료 후 아이콘 복원
+                    });
                     // SFX 최대 지속시간(3초) 후 아이콘 복원
                     setTimeout(() => setPlayingSfx(prev => prev === sfx.id ? null : prev), 3200);
                   }}
