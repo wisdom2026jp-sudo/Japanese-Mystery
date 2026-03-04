@@ -13,7 +13,7 @@ import requests
 
 print("=" * 60)
 print("AutoGen Pro - Video Renderer v2.0")
-print("나레이션 2분42초 → 2초 대기 → 페이드아웃 종료")
+print("장르 59초 쪽츠 최적화 | 나레이션 55초 + 2초 대기 + 2초 페이드아웃")
 print("=" * 60)
 print()
 
@@ -21,12 +21,12 @@ print()
 TARGET_WIDTH = 1080
 TARGET_HEIGHT = 1920
 FPS = 30
-NARRATION_DURATION = 162   # 2분 42초 (나레이션/자막 길이)
-POST_NARRATION_HOLD = 2    # 나레이션 종료 후 대기 시간(초)
-FADE_OUT_DURATION  = 3    # 페이드 아웃 길이(초)
-# 전체 영상 = 나레이션 + 대기 + 페이드아웃
-VIDEO_DURATION = NARRATION_DURATION + POST_NARRATION_HOLD + FADE_OUT_DURATION  # 167초
-SUBTITLE_DURATION = NARRATION_DURATION  # 자막은 나레이션 구간에만 표시
+NARRATION_DURATION = 55    # 나레이션/자막 길이 (55초)
+POST_NARRATION_HOLD = 2    # 나레이션 종료 후 대기 (초)
+FADE_OUT_DURATION  = 2     # 페이드 아웃 길이 (초)
+# 전체 영상 = 55 + 2 + 2 = 59초
+VIDEO_DURATION = NARRATION_DURATION + POST_NARRATION_HOLD + FADE_OUT_DURATION
+SUBTITLE_DURATION = NARRATION_DURATION  # 자막은 나레이션 구간에만
 
 # 자막 스타일
 SUBTITLE_FONT_SIZE = 58

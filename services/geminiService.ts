@@ -60,10 +60,10 @@ const JAPANESE_PHOTO_RULES = "STRICTLY REAL PHOTOGRAPH. HIGH-END CINEMATIC REALI
 const responseSchema = {
   type: Type.OBJECT,
   properties: {
-    title_ja: { type: Type.STRING, description: "YouTube Shorts Title (Japanese)." },
+    title_ja: { type: Type.STRING, description: "YouTube Shorts title starting with【閲覧注意】(max 40 chars)." },
     title_kr: { type: Type.STRING },
-    description_ja: { type: Type.STRING, description: "Description with Japanese hashtags." },
-    script_ja: { type: Type.STRING, description: "1500 characters Japanese narration. Professional tone." },
+    description_ja: { type: Type.STRING, description: "Description with #閲覧注意 #都市伝説 #怖い話 #日本怪談 #Shorts hashtags." },
+    script_ja: { type: Type.STRING, description: "200-220 characters Japanese narration for 55 seconds. Hook in first 5 sec, cliffhanger at end." },
     script_kr: { type: Type.STRING },
     mood: { type: Type.STRING, enum: ["rain", "night", "coffee", "forest", "school"] },
     bgm_descriptor: { type: Type.STRING },
@@ -71,7 +71,7 @@ const responseSchema = {
     story_image_prompts: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "Exactly 15 detailed cinematic image prompts."
+      description: "Exactly 5 horror cinematic image prompts for 59sec Shorts pace."
     },
     tags: { type: Type.ARRAY, items: { type: Type.STRING } },
     creator_affirmation: { type: Type.STRING }
@@ -80,18 +80,39 @@ const responseSchema = {
 };
 
 export const generateHealingPlan = async (topic: string, persona: PersonaType = 'mystery'): Promise<HealingPlan> => {
-  const prompt = `Create a professional YouTube Shorts production plan for: "${topic}". 
+  const prompt = `Create a professional YouTube Shorts production plan for: "${topic}".
   Target: Japanese audience. Tone: ${persona}.
-  Video length: 2:59.
-  
-  CRITICAL INSTRUCTIONS for YouTube Algorithm:
-  1. title_ja: Must be an extremely attention-grabbing, viral click-bait title (max 50 chars). User power words, emojis, and mystery hooks.
-  2. description_ja: Write a detailed, engaging description including a summary of the mystery and emotional hooks.
-  3. tags: Provide 20+ viral search tags related to Japanese mystery and the specific topic.
-  
-  You MUST provide exactly 15 distinct image prompts for the storyboard.
-  EACH PROMPT MUST DESCRIBE A VERTICAL (9:16) COMPOSITION.
-  Use Google Search to find real historical facts or urban legends related to the topic for Japanese authenticity.
+  Video length: EXACTLY 59 seconds (narration must be 55 seconds max).
+
+  === CRITICAL: YOUTUBE SHORTS ALGORITHM OPTIMIZATION ===
+
+  1. title_ja: MUST start with【閲覧注意】. Max 40 chars. Use extreme horror hooks.
+     Examples: 【閲覧注意】深夜の渋谷駅で見てしまったもの...
+               【閲覧注意】立入禁止区域から聞こえた声の正体
+
+  2. script_ja: EXACTLY 200-220 characters (fits 55 seconds at Japanese TTS speed).
+     STRUCTURE:
+     - [0-5sec]  HOOK: Start with the most shocking/scary moment IMMEDIATELY.
+       Use: "信じられないことが起きた", "これは実話です", "絶対に一人で見ないでください"
+     - [5-45sec] STORY: Build tension quickly, reveal mystery
+     - [45-55sec] CLIFFHANGER: End with unresolved mystery to drive subscriptions
+       Use: "続きはチャンネル登録後に..." or "この謎は今も解明されていない"
+
+  3. hook_image_prompt: HORROR THUMBNAIL OPTIMIZED for high CTR.
+     MUST include:
+     - Extreme close-up of terrified Japanese person's face OR supernatural entity
+     - Deep shadows, blood-red or sickly green color grading
+     - Visible text space (top/bottom) for overlay
+     - Motion blur or grain effect for authenticity
+     - 9:16 vertical, 2K quality
+
+  4. story_image_prompts: Exactly 5 prompts (optimized for 59sec edit pace).
+     Each: dramatic, high-contrast, horror atmosphere, Japanese setting.
+
+  5. description_ja: Include #閲覧注意 #都市伝説 #怖い話 #日本怪談 #Shorts #horror
+
+  6. tags: 20+ Japanese horror/mystery search tags.
+
   JSON format required.`;
 
   return retryWithBackoff(async () => {
@@ -102,7 +123,7 @@ export const generateHealingPlan = async (topic: string, persona: PersonaType = 
       config: {
         responseMimeType: "application/json",
         responseSchema,
-        temperature: 0.8,
+        temperature: 0.85,
         thinkingConfig: { thinkingBudget: 32768 },
         tools: [{ googleSearch: {} }]
       }
@@ -120,7 +141,18 @@ export const generateHealingPlan = async (topic: string, persona: PersonaType = 
 };
 
 export const generateHookImage = async (imagePrompt: string, style: VisualStyle = 'cinematic_real'): Promise<string | undefined> => {
-  const hookPrompt = `[STRICTLY 9:16 VERTICAL] Authentic Japanese scene. Full vertical frame. High-end cinematic photography. No horizontal margins. ${imagePrompt}. ${JAPANESE_PHOTO_RULES}`;
+  // ✅ 공포 썸네일 최적화: 높은 CTR을 위한 극적 공포 요소 강화
+  const horrorEnhancement = [
+    "EXTREME HORROR ATMOSPHERE",
+    "deep crimson and black color grading",
+    "dramatic chiaroscuro lighting with single light source",
+    "film grain and motion blur for authenticity",
+    "close-up composition for emotional impact",
+    "supernatural tension visible in every element",
+    "inspired by J-horror cinema (Ringu, Ju-On aesthetic)",
+    "NO TEXT overlays, NO watermarks, NO borders"
+  ].join(". ");
+  const hookPrompt = `[STRICTLY 9:16 VERTICAL THUMBNAIL] ${imagePrompt}. ${horrorEnhancement}. ${JAPANESE_PHOTO_RULES}`;
   return retryWithBackoff(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
