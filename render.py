@@ -13,7 +13,7 @@ import requests
 
 print("=" * 60)
 print("AutoGen Pro - Video Renderer v2.0")
-print("자막 표시 개선 버전 - 2분45초까지 자막 표시")
+print("나레이션 2분42초 → 2초 대기 → 페이드아웃 종료")
 print("=" * 60)
 print()
 
@@ -21,8 +21,12 @@ print()
 TARGET_WIDTH = 1080
 TARGET_HEIGHT = 1920
 FPS = 30
-SUBTITLE_DURATION = 174  # 2분 54초 (자막/나레이션 길이)
-VIDEO_DURATION = 179  # 2분 59초 (전체 영상)
+NARRATION_DURATION = 162   # 2분 42초 (나레이션/자막 길이)
+POST_NARRATION_HOLD = 2    # 나레이션 종료 후 대기 시간(초)
+FADE_OUT_DURATION  = 3    # 페이드 아웃 길이(초)
+# 전체 영상 = 나레이션 + 대기 + 페이드아웃
+VIDEO_DURATION = NARRATION_DURATION + POST_NARRATION_HOLD + FADE_OUT_DURATION  # 167초
+SUBTITLE_DURATION = NARRATION_DURATION  # 자막은 나레이션 구간에만 표시
 
 # 자막 스타일
 SUBTITLE_FONT_SIZE = 58
@@ -232,16 +236,21 @@ def main():
         hook = hook.resize((TARGET_WIDTH, TARGET_HEIGHT))
         clips.append(hook)
     
-    # 나레이션 길이 측정
-    subtitle_end_time = SUBTITLE_DURATION
+    # 나레이션 길이 측정 (실제 파일 기준, 없으면 고정값 162초 사용)
+    subtitle_end_time = NARRATION_DURATION
     if files['narration.wav']:
         try:
             temp_audio = AudioFileClip('narration.wav')
             subtitle_end_time = temp_audio.duration
-            print(f"  🎙️  나레이션 길이감지: {subtitle_end_time:.1f}초")
+            print(f"  🎙️  나레이션 실제 길이: {subtitle_end_time:.1f}초")
             temp_audio.close()
         except:
-            print("  ⚠️  나레이션 길이 측정 실패, 기본값 사용")
+            print(f"  ⚠️  나레이션 길이 측정 실패, 기본값 {NARRATION_DURATION}초 사용")
+
+    # 전체 영상 길이 재계산 (나레이션 실제 길이 기반)
+    video_total = subtitle_end_time + POST_NARRATION_HOLD + FADE_OUT_DURATION
+    fade_start  = subtitle_end_time + POST_NARRATION_HOLD  # 페이드 시작 시점
+    print(f"  📐 영상 구성: 나레이션 {subtitle_end_time:.1f}초 + 대기 {POST_NARRATION_HOLD}초 + 페이드 {FADE_OUT_DURATION}초 = 총 {video_total:.1f}초")
 
     # 스토리 이미지
     remaining = subtitle_end_time - hook_duration
@@ -261,22 +270,22 @@ def main():
     
     # 5. 영상 클립 길이 조절 및 합치기
     print("🎞️  Step 5: 영상 합치기 및 페이드 아웃 적용")
-    
-    # 마지막 이미지를 연장하여 전체 길이를 VIDEO_DURATION으로 맞춤
+
+    # 마지막 이미지를 연장하여 전체 길이(나레이션+대기+페이드)를 맞춤
     current_duration = sum(c.duration for c in clips)
-    if current_duration < VIDEO_DURATION:
-        extension = VIDEO_DURATION - current_duration
+    if current_duration < video_total:
+        extension = video_total - current_duration
         if len(clips) > 0:
             clips[-1] = clips[-1].set_duration(clips[-1].duration + extension)
 
     # 영상 합치기
     final_video = concatenate_videoclips(clips, method="compose")
-    
-    # 2분 55초(175초) 부분부터 끝(179초)까지 4초 동안 서서히 어두워지며 페이드 아웃
-    fade_duration = VIDEO_DURATION - 175
-    if fade_duration > 0:
-        final_video = final_video.fadeout(fade_duration)
-    
+    final_video = final_video.set_duration(video_total)
+
+    # ✅ 나레이션 종료 후 2초 대기 → 이후 FADE_OUT_DURATION 초 동안 서서히 어두워짐
+    print(f"  🎬 페이드 아웃: {fade_start:.1f}초 시작, {FADE_OUT_DURATION}초 동안")
+    final_video = final_video.fadeout(FADE_OUT_DURATION)
+
     print(f"  ✅ 영상 길이: {final_video.duration:.1f}초")
     print()
     
@@ -323,21 +332,20 @@ def main():
     
     if audio_clips:
         final_audio = CompositeAudioClip(audio_clips)
-        # 페이드 아웃 타임이 존재하면, 오디오에도 동일하게 페이드 아웃을 적용해줍니다 (175초 시점부터)
-        fade_duration = VIDEO_DURATION - 175
-        if fade_duration > 0:
-            final_audio = final_audio.audio_fadeout(fade_duration)
+        # ✅ 나레이션 종료 후 2초 대기 → 페이드아웃 구간 동안 오디오도 서서히 소멸
+        final_audio = final_audio.subclip(0, min(final_audio.duration, video_total))
+        final_audio = final_audio.audio_fadeout(FADE_OUT_DURATION)
         final_video = final_video.set_audio(final_audio)
-        print(f"  ✅ 오디오 {len(audio_clips)}개 추가 (페이드아웃 반영됨)")
+        print(f"  ✅ 오디오 {len(audio_clips)}개 추가 (페이드아웃 {FADE_OUT_DURATION}초 반영됨)")
     
     print()
     
-    # 8. 구독 유도 CTA 자막 (174~179초)
+    # 8. 구독 유도 CTA 자막 (나레이션 종료 시점 ~ 페이드 직전)
     print("📢 Step 8: 구독/좋아요 유도 자막 추가")
     try:
-        CTA_START = float(SUBTITLE_DURATION)  # 174초
-        CTA_END   = float(VIDEO_DURATION)     # 179초
-        cta_dur   = CTA_END - CTA_START       # 5초
+        CTA_START = float(subtitle_end_time)           # 나레이션 종료 시점
+        CTA_END   = float(fade_start)                  # 페이드 시작 직전
+        cta_dur   = max(CTA_END - CTA_START, 0.5)      # 최소 0.5초 보장
 
         CW, CH = TARGET_WIDTH, 320
         cta_img = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
@@ -392,8 +400,10 @@ def main():
     print("🚀 Step 9: 최종 렌더링")
     print(f"  해상도: {TARGET_WIDTH}x{TARGET_HEIGHT}")
     print(f"  FPS: {FPS}")
-    print(f"  자막 길이: {SUBTITLE_DURATION}초")
-    print(f"  전체 길이: {VIDEO_DURATION}초")
+    print(f"  나레이션: {subtitle_end_time:.1f}초 (2분 {subtitle_end_time-120:.0f}초)")
+    print(f"  대기 구간: {POST_NARRATION_HOLD}초")
+    print(f"  페이드 아웃: {FADE_OUT_DURATION}초")
+    print(f"  전체 길이: {video_total:.1f}초")
     print()
     print("⏱️  렌더링 시작... (5-10분 소요)")
     print("=" * 60)
@@ -422,7 +432,8 @@ def main():
         print("🎉 영상이 성공적으로 생성되었습니다!")
         print("🎬 final_output.mp4 파일을 확인하세요!")
         print()
-        print("💡 자막은 0초 ~ 2분54초(174초)까지 표시됩니다")
+        print(f"💡 자막: 0초 ~ {subtitle_end_time:.0f}초 (나레이션 구간)")
+        print(f"💡 페이드 아웃: {fade_start:.0f}초 ~ {video_total:.0f}초")
         
     except Exception as e:
         print()
