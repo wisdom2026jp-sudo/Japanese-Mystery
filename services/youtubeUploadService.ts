@@ -3,7 +3,11 @@
  * YouTube Data API v3 - OAuth 2.0 + Resumable Upload
  */
 
-const SCOPES = 'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube';
+// YouTube Data API v3 - 업로드에 필요한 최소 scope만 사용
+// youtube.upload = sensitive scope (심사 불필요, 테스트 사용자 가능)
+// youtube = restricted scope (Google 심사 필요 → 오류 원인)
+const SCOPES = 'https://www.googleapis.com/auth/youtube.upload';
+
 const CLIENT_ID = (import.meta as any).env?.VITE_YOUTUBE_CLIENT_ID || '';
 
 let accessToken: string | null = null;
