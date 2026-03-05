@@ -60,10 +60,10 @@ const JAPANESE_PHOTO_RULES = "STRICTLY REAL PHOTOGRAPH. HIGH-END CINEMATIC REALI
 const responseSchema = {
   type: Type.OBJECT,
   properties: {
-    title_ja: { type: Type.STRING, description: "YouTube Shorts title starting with【閲覧注意】(max 40 chars)." },
+    title_ja: { type: Type.STRING, description: "Ultra-high CTR YouTube Shorts title. Max 40 chars. Must create extreme curiosity gap." },
     title_kr: { type: Type.STRING },
-    description_ja: { type: Type.STRING, description: "Description with #閲覧注意 #都市伝説 #怖い話 #日本怪談 #Shorts hashtags." },
-    script_ja: { type: Type.STRING, description: "200-220 characters Japanese narration for 55 seconds. Hook in first 5 sec, cliffhanger at end." },
+    description_ja: { type: Type.STRING, description: "SEO-optimized description. First 2 lines must be a cliffhanger teaser. Include 15+ hashtags." },
+    script_ja: { type: Type.STRING, description: "200-220 chars Japanese narration. Hook in first 5 sec. Cliffhanger at end. Natural spoken pace." },
     script_kr: { type: Type.STRING },
     mood: { type: Type.STRING, enum: ["rain", "night", "coffee", "forest", "school"] },
     bgm_descriptor: { type: Type.STRING },
@@ -80,40 +80,84 @@ const responseSchema = {
 };
 
 export const generateHealingPlan = async (topic: string, persona: PersonaType = 'mystery'): Promise<HealingPlan> => {
-  const prompt = `Create a professional YouTube Shorts production plan for: "${topic}".
-  Target: Japanese audience. Tone: ${persona}.
-  Video length: EXACTLY 59 seconds (narration must be 55 seconds max).
+  const prompt = `You are Japan's #1 YouTube Shorts horror content strategist. Create a viral production plan for: "${topic}".
+  Target: Japanese audience (18-35). Tone: ${persona}. Video: EXACTLY 59 seconds.
 
-  === CRITICAL: YOUTUBE SHORTS ALGORITHM OPTIMIZATION ===
+  ================================================================
+  YOUTUBE SHORTS CTR MAXIMIZATION SYSTEM (Research-Based)
+  ================================================================
 
-  1. title_ja: MUST start with【閲覧注意】. Max 40 chars. Use extreme horror hooks.
-     Examples: 【閲覧注意】深夜の渋谷駅で見てしまったもの...
-               【閲覧注意】立入禁止区域から聞こえた声の正体
+  ★ TITLE FORMULA (title_ja) — MAX 40 CHARS, ULTRA HIGH CTR:
+  Combine 2-3 of these proven psychological triggers:
 
-  2. script_ja: EXACTLY 200-220 characters (fits 55 seconds at Japanese TTS speed).
-     STRUCTURE:
-     - [0-5sec]  HOOK: Start with the most shocking/scary moment IMMEDIATELY.
-       Use: "信じられないことが起きた", "これは実話です", "絶対に一人で見ないでください"
-     - [5-45sec] STORY: Build tension quickly, reveal mystery
-     - [45-55sec] CLIFFHANGER: End with unresolved mystery to drive subscriptions
-       Use: "続きはチャンネル登録後に..." or "この謎は今も解明されていない"
+  [TRIGGER A - 禁止/警告] (Forbidden/Warning language)
+  → 「絶対に一人で見ないでください」「見てはいけなかった」「削除される前に見てください」
 
-  3. hook_image_prompt: HORROR THUMBNAIL OPTIMIZED for high CTR.
-     MUST include:
-     - Extreme close-up of terrified Japanese person's face OR supernatural entity
-     - Deep shadows, blood-red or sickly green color grading
-     - Visible text space (top/bottom) for overlay
-     - Motion blur or grain effect for authenticity
-     - 9:16 vertical, 2K quality
+  [TRIGGER B - 具体的数字] (Specific numbers = believability)
+  → 「午前3時17分」「3日後に消えた」「7回繰り返した者は...」
 
-  4. story_image_prompts: Exactly 5 prompts (optimized for 59sec edit pace).
-     Each: dramatic, high-contrast, horror atmosphere, Japanese setting.
+  [TRIGGER C - 未完結の謎] (Curiosity gap / unresolved mystery)
+  → 「...その正体は」「誰も知らなかった理由」「今も解明されていない」
 
-  5. description_ja: Include #閲覧注意 #都市伝説 #怖い話 #日本怪談 #Shorts #horror
+  [TRIGGER D - 実話/証拠] (Real story / evidence framing)
+  → 「これは実話です」「撮影禁止区域の映像」「遺族が初めて語った」
 
-  6. tags: 20+ Japanese horror/mystery search tags.
+  [TRIGGER E - 地名/固有名詞] (Specific = credible)
+  → 京都, 青木ヶ原, 渋谷, 病院, 廃墟, 大学, 地下鉄
 
-  JSON format required.`;
+  TITLE EXAMPLES (DO NOT COPY, use as inspiration):
+  ✓「【閲覧注意】午前3時の病院で撮れた映像...削除前に」(39字)
+  ✓「【閲覧注意】京都の廃病院、7人が見た同じ夢の正体」(40字)
+  ✓「【閲覧注意】絶対に一人で見るな。青木ヶ原の禁止区域」(40字)
+  ✗ BAD: 「【閲覧注意】怖い話」(too vague, no curiosity gap)
+
+  ★ DESCRIPTION (description_ja) — SEO + CURIOSITY STRUCTURE:
+  CRITICAL: First 2 lines appear BEFORE the "more" button. Must be a cliffhanger:
+
+  Line 1-2 (VISIBLE): Shocking teaser that STOPS the scroll.
+    → "この映像を見た3名が、その夜に同じ悪夢を見た。あなたは大丈夫ですか？"
+    → "削除申請が入ったため、今だけ公開しています。"
+
+  Line 3-5 (AFTER MORE): Story context + call to action:
+    → Brief story setup (2 sentences)
+    → 「チャンネル登録で続きの真相を公開予定」
+    → 「👇コメントで体験談をシェアしてください」
+
+  HASHTAG BLOCK (20+ tags, SEO ordered by search volume):
+  #怖い話 #都市伝説 #日本怪談 #閲覧注意 #Shorts #horror #怪談 #心霊 #ミステリー
+  #ホラー #怖い #実話 #未解決 #謎 #日本ミステリー #JapaneseHorror #怪奇現象
+  #恐怖 #オカルト #心霊現象 #不思議な話 #怖い動画
+
+  ★ SCRIPT (script_ja) — 200-220 CHARS, SPOKEN WORD OPTIMIZED:
+  STRUCTURE (psychological arc):
+  [0-5sec]   PATTERN INTERRUPT: Drop audience into peak moment. NO intro.
+             → "それは、信じてはいけないものを見た瞬間だった。"
+             → "あの日から、彼女は二度と口を開かなかった。"
+
+  [5-35sec]  STORY BUILD: Specific details = credibility.
+             Use: exact times, real-sounding names, specific locations.
+             Raise tension with: 「そこにいるはずのない人影が」「声が聞こえた時、電話は繋がっていた」
+
+  [35-50sec] REVELATION/TWIST: The scariest moment.
+             Subvert expectations. Make it personal: 「あなたは大丈夫ですか？」
+
+  [50-55sec] CLIFFHANGER CLOSE (drives subscriptions):
+             → "この謎は今も解明されていない。"
+             → "続きは...チャンネルに。"
+
+  ★ HOOK IMAGE (hook_image_prompt) — THUMBNAIL CTR PSYCHOLOGY:
+  Apply the "3-second stop-scroll" formula:
+  1. FACE with extreme emotion (terror, shock) OR mysterious silhouette
+  2. HIGH CONTRAST: pitch black background + single harsh light
+  3. ANOMALY: something that shouldn't be there
+  4. J-Horror aesthetic (Ringu/Ju-On inspired)
+  Must be: 9:16 vertical, 2K, NO TEXT, extreme close-up preferred.
+
+  ★ TAGS (30+ tags, mix of high/low competition):
+  Include: broad tags (怖い話, ホラー) + specific niche tags (Japanese urban legend names)
+  + trending tags (Shorts, horror, japan) + long-tail tags (実話怪談 最新, 日本怪談 短編)
+
+  Output as JSON. Make this go VIRAL.`;
 
   return retryWithBackoff(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
