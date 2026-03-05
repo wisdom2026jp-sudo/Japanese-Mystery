@@ -204,15 +204,25 @@ const YoutubeUploadModal: React.FC<Props> = ({ plan, onClose }) => {
                         </label>
 
                         {useSchedule && (
-                            <div className="flex items-center gap-3">
+                            <div className="space-y-2">
+                                {/* 날짜 */}
                                 <input type="date" value={scheduleDate} min={new Date().toISOString().split('T')[0]}
                                     onChange={e => setScheduleDate(e.target.value)} disabled={isWorking}
-                                    className="flex-1 px-3 py-2.5 bg-[#0F0F1A] border-2 border-[#1E1E2C] rounded-xl text-[#E8DDD0] text-sm font-bold focus:border-red-700 outline-none disabled:opacity-50" />
-                                <input type="time" value={scheduleTime}
-                                    onChange={e => setScheduleTime(e.target.value)} disabled={isWorking}
-                                    className="w-28 px-3 py-2.5 bg-[#0F0F1A] border-2 border-[#1E1E2C] rounded-xl text-[#E8DDD0] text-sm font-bold focus:border-red-700 outline-none disabled:opacity-50" />
-                                <div className="flex items-center gap-1 text-[#6B5A5A] text-xs font-black">
-                                    <Clock size={12} /> JST
+                                    className="w-full px-3 py-2.5 bg-[#0F0F1A] border-2 border-[#1E1E2C] rounded-xl text-[#E8DDD0] text-sm font-bold focus:border-red-700 outline-none disabled:opacity-50" />
+                                {/* 시간 + JST */}
+                                <div className="flex items-center gap-2">
+                                    <select value={scheduleTime}
+                                        onChange={e => setScheduleTime(e.target.value)} disabled={isWorking}
+                                        className="flex-1 px-3 py-2.5 bg-[#0F0F1A] border-2 border-[#1E1E2C] rounded-xl text-[#E8DDD0] text-sm font-bold focus:border-red-700 outline-none disabled:opacity-50">
+                                        {Array.from({ length: 24 }, (_, h) => {
+                                            const hStr = String(h).padStart(2, '0');
+                                            const label = h < 12 ? `오전 ${h === 0 ? 12 : h}:00` : `오후 ${h === 12 ? 12 : h - 12}:00`;
+                                            return <option key={hStr} value={`${hStr}:00`}>{label}</option>;
+                                        })}
+                                    </select>
+                                    <div className="flex items-center gap-1 text-[#6B5A5A] text-xs font-black shrink-0">
+                                        <Clock size={12} /> JST
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -284,7 +294,13 @@ const YoutubeUploadModal: React.FC<Props> = ({ plan, onClose }) => {
                             ? <><Loader2 size={22} className="animate-spin" /> 업로드 중... ({progress}%)</>
                             : status === 'done'
                                 ? <><CheckCircle size={22} /> 업로드 완료</>
-                                : <><Youtube size={22} /> {useSchedule ? `${scheduleDate} ${scheduleTime} JST 에 예약 업로드` : '지금 바로 업로드'}</>}
+                                : <><Youtube size={20} />
+                                    <span className="text-center leading-tight">
+                                        {useSchedule
+                                            ? <>{scheduleDate}<br />{scheduleTime} JST 예약 업로드</>
+                                            : '지금 바로 업로드'}
+                                    </span>
+                                </>}
                     </button>
                     <p className="text-[9px] text-[#3A2A2A] font-bold text-center">
                         Google Cloud Console → YouTube Data API v3 + OAuth 2.0 클라이언트 ID 필요
