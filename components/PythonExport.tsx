@@ -113,7 +113,9 @@ except Exception as e:
 FONT_URL = "https://www.dropbox.com/scl/fi/vf37c2zs0fv624oosy3yw/SpoqaHanSansJPBold.ttf?rlkey=h2lqymoyzogf2nne7a0mek4hh&st=rzvusig0&dl=1"
 FONT_FILENAME = "SpoqaHanSansJPBold.ttf"
 TARGET_W, TARGET_H = 1080, 1920
-FIXED_DURATION = 179.0 
+FIXED_DURATION = 59.0          # YouTube Shorts 최적: 59초
+NARRATION_END  = 55.0          # 나레이션/자막은 55초까지
+FADEOUT_DUR    = 4.0           # 마지막 4초 페이드아웃
 SELECTED_EFFECTS = ${JSON.stringify(plan.selectedEffects || [])}
 SELECTED_SFX = ${JSON.stringify(plan.selectedSfx || [])}
 HOOK_TEXT = "${(plan.hookText || '都市伝説').replace(/"/g, '\\"')}"
@@ -442,9 +444,15 @@ def main():
     except Exception as e:
         print(f"  ⚠️ 구독 유도 자막 실패: {e}")
 
-    print("💾 High-Quality Encoding Starting (V38.0 SFX Update)...")
+    print("💾 High-Quality Encoding Starting (V39.0 - 59sec Shorts)...")
+    # ★ 59초 고정 + 마지막 4초 페이드아웃 (YouTube Shorts 최적화)
     final = CompositeVideoClip([final_video] + subtitle_clips).set_duration(FIXED_DURATION)
+    final = final.subclip(0, FIXED_DURATION)               # 59초로 강제 자름
+    final = final.fadeout(FADEOUT_DUR)                     # 영상 마지막 4초 페이드아웃
+    if final.audio:
+        final = final.set_audio(final.audio.audio_fadeout(FADEOUT_DUR))  # 오디오도 페이드아웃
     final.write_videofile("final_output.mp4", fps=24, codec='libx264', audio_codec='aac', threads=4, preset='ultrafast')
+
     print("\\n" + "="*60)
     print("✅ MASTER RENDER COMPLETE (V38.0)")
     print("📁 final_output.mp4  - 최종 영상")
