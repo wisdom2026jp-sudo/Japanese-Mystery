@@ -1,6 +1,25 @@
 
 export type ContentLanguage = 'ja' | 'ko';
 
+// 배치 생성 큐 아이템
+export interface BatchQueueItem {
+  id: string;
+  topic: string;
+  status: 'pending' | 'running' | 'done' | 'error';
+  plan?: HealingPlan;
+  errorMsg?: string;
+}
+
+// 생성 이력 아이템
+export interface HistoryItem {
+  id: string;
+  topic: string;
+  createdAt: string;
+  plan: HealingPlan;
+  language: ContentLanguage;
+  bgmVolume: number;
+}
+
 export interface GroundingSource {
   title?: string;
   uri?: string;
@@ -9,9 +28,16 @@ export interface GroundingSource {
 export interface HealingPlan {
   title_ja: string;
   title_kr: string;
+  // A/B 테스트 대체 제목
+  title_alt_a?: string;  // FORBIDDEN angle 버전
+  title_alt_b?: string;  // VIEWER-TARGETING angle 버전
   description_ja: string;
   script_ja: string;
   script_kr: string;
+  // 알고리즘 최적화 필드
+  loop_hook?: string;         // 루프 재생 유도 엔딩 문장
+  comment_trigger?: string;   // 댓글 폭발 유도 질문
+  optimal_upload_time?: string; // 최적 업로드 시간 (JST)
   mood: string;
   bgm_descriptor: string;
   tags: string[];
@@ -36,7 +62,7 @@ export type SfxType = 'horror_noise' | 'heartbeat' | 'transition_whoosh' | 'deep
 
 export type VisualStyle = 'warm_film' | 'blue_hour' | 'dreamy_soft' | 'cinematic_real';
 
-export type PersonaType = 'success' | 'mystery' | 'dopamine' | 'healer';
+export type PersonaType = 'urban_legend' | 'true_story' | 'human_horror' | 'folklore_curse';
 
 export interface Persona {
   id: PersonaType;

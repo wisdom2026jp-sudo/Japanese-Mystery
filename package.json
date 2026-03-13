@@ -1,7 +1,7 @@
 {
-  "name": "japanese-shorts-auto-gen-(pro-edition)",
+  "name": "japanese-shorts-autogen-pro",
   "private": true,
-  "version": "3.7.0",
+  "version": "3.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,9 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ffmpeg/ffmpeg": "^0.12.15",
-    "@ffmpeg/util": "^0.12.2",
     "@google/genai": "^1.37.0",
+    "firebase": "^12.10.0",
     "jszip": "3.10.1",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",

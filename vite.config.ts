@@ -13,8 +13,10 @@ export default defineConfig(({ mode }) => {
     '';
   return {
     server: {
-      port: 3000,
+      port: 4000,
+      strictPort: false,   // 포트 충돌 시 자동으로 다음 포트 사용
       host: '0.0.0.0',
+      open: true,          // 서버 시작 시 브라우저 자동 오픈
     },
     plugins: [react()],
     define: {

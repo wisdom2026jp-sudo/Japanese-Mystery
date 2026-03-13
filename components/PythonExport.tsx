@@ -1,15 +1,18 @@
 
 import React, { useState } from 'react';
 import { HealingPlan, ContentLanguage } from '../types';
-import { Archive, Loader2, Music, CheckCircle2, ShieldCheck, Cpu, Sparkles, BookOpen } from 'lucide-react';
+import { Archive, Loader2, Music, CheckCircle2, ShieldCheck, Cpu, Sparkles, BookOpen, Volume2, VolumeX } from 'lucide-react';
 import JSZip from 'jszip';
 
 interface PythonExportProps {
     plan: HealingPlan;
     userBgm: File | null;
+    userHookVideo?: File | null;
     onAnimateHook: () => void;
     isAnimatingHook: boolean;
     language: ContentLanguage;
+    bgmVolume: number;
+    onBgmVolumeChange: (v: number) => void;
 }
 
 function getWavBytes(base64Data: string, sampleRate: number): Uint8Array {
@@ -72,9 +75,9 @@ const generateSRT = (script: string, durationSeconds: number): string => {
     return srt;
 };
 
-export const PythonExport: React.FC<PythonExportProps> = ({ plan, userBgm, onAnimateHook, isAnimatingHook, language }) => {
+export const PythonExport: React.FC<PythonExportProps> = ({ plan, userBgm, userHookVideo, onAnimateHook, isAnimatingHook, language, bgmVolume, onBgmVolumeChange }) => {
     const [isZipping, setIsZipping] = useState(false);
-    const isReady = !!plan.hookVideoUrl && !!userBgm;
+    const isReady = (!!plan.hookVideoUrl || !!userHookVideo) && !!userBgm;
     const isJa = language === 'ja';
     // 선택된 언어의 나레이션 스크립트
     const narrationScript = isJa ? plan.script_ja : plan.script_kr;
@@ -116,20 +119,21 @@ TARGET_W, TARGET_H = 1080, 1920
 FIXED_DURATION = 59.0          # YouTube Shorts 최적: 59초
 NARRATION_END  = 55.0          # 나레이션/자막은 55초까지
 FADEOUT_DUR    = 4.0           # 마지막 4초 페이드아웃
+BGM_VOLUME = ${bgmVolume.toFixed(2)}   # BGM 볼륨 (0.0 ~ 1.0)
 SELECTED_EFFECTS = ${JSON.stringify(plan.selectedEffects || [])}
 SELECTED_SFX = ${JSON.stringify(plan.selectedSfx || [])}
 HOOK_TEXT = "${(plan.hookText || '都市伝説').replace(/"/g, '\\"')}"
 
-# ===== UPDATE 1: SFX 생성 함수 (numpy로 공포 음향 자동 생성) =====
+# ===== UPDATE 1: SFX 생성 함수 (numpy + scipy로 공포 음향 자동 생성) =====
 def generate_sfx(sfx_type, duration=2.0, sample_rate=44100):
-    """공포 음향 효과를 numpy로 자동 생성"""
-    t = np.linspace(0, duration, int(sample_rate * duration))
+    """공포 음향 효과 numpy 합성 → WAV 임시파일 → AudioFileClip 반환 (MoviePy 1.x 호환)"""
+    import struct, tempfile, os
+    t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
     audio = np.zeros(len(t))
     try:
         if sfx_type == 'horror_noise':
             noise = np.random.randn(len(t)) * 0.3
-            rumble_freq = 40
-            rumble = np.sin(2 * np.pi * rumble_freq * t) * 0.4 * np.exp(-t * 0.8)
+            rumble = np.sin(2 * np.pi * 40 * t) * 0.4 * np.exp(-t * 0.8)
             audio = noise + rumble
         elif sfx_type == 'heartbeat':
             for beat_t in np.arange(0, duration, 1.0):
@@ -146,16 +150,37 @@ def generate_sfx(sfx_type, duration=2.0, sample_rate=44100):
                      np.sin(2 * np.pi * 55 * t) * 0.3 +
                      np.random.randn(len(t)) * 0.05)
         elif sfx_type == 'static_burst':
-            audio = np.random.randn(len(t)) * 0.7
-            envelope = np.exp(-t * 4)
-            audio = audio * envelope
+            audio = np.random.randn(len(t)) * 0.7 * np.exp(-t * 4)
+
         # 정규화
         max_val = np.max(np.abs(audio))
         if max_val > 0:
             audio = audio / max_val * 0.65
-        # 스테레오 변환 (2채널)
-        stereo = np.column_stack([audio, audio])
-        return AudioArrayClip(stereo, fps=sample_rate)
+
+        # ✅ MoviePy 1.x 호환: PCM 16bit WAV 임시파일로 저장 후 AudioFileClip 로드
+        pcm16 = (audio * 32767).astype(np.int16)
+        # WAV 헤더 직접 작성 (scipy 불필요)
+        num_samples = len(pcm16)
+        num_channels = 1
+        bits_per_sample = 16
+        byte_rate = sample_rate * num_channels * bits_per_sample // 8
+        block_align = num_channels * bits_per_sample // 8
+        data_size = num_samples * block_align
+        header = struct.pack('<4sI4s4sIHHIIHH4sI',
+            b'RIFF', 36 + data_size, b'WAVE',
+            b'fmt ', 16, 1, num_channels, sample_rate,
+            byte_rate, block_align, bits_per_sample,
+            b'data', data_size)
+        wav_bytes = header + pcm16.tobytes()
+
+        tmp = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+        tmp.write(wav_bytes)
+        tmp.close()
+        clip = AudioFileClip(tmp.name)
+        # 임시 파일 정리 (재생 후)
+        import atexit
+        atexit.register(lambda p=tmp.name: os.unlink(p) if os.path.exists(p) else None)
+        return clip
     except Exception as e:
         print(f"  ⚠️ SFX 생성 실패 ({sfx_type}): {e}")
         return None
@@ -303,7 +328,7 @@ def main():
     sfx_audio_clips = [final_voice]
     if bgm_files:
         try:
-            bgm = AudioFileClip(bgm_files[0]).volumex(0.18).audio_loop(duration=FIXED_DURATION).audio_fadeout(3.0)
+            bgm = AudioFileClip(bgm_files[0]).volumex(BGM_VOLUME).audio_loop(duration=FIXED_DURATION).audio_fadeout(3.0)
             sfx_audio_clips.append(bgm)
         except: pass
     
@@ -392,11 +417,11 @@ def main():
                         subtitle_clips.append(sub)
         except: pass
 
-    # ===== 구독/좋아요 유도 자막 (영상 마지막 174~179초) =====
+    # ===== 구독/좋아요 유도 자막 (영상 마지막 52~59초) =====
     try:
-        CTA_START = 174.0   # 나레이션 종료 직후
-        CTA_END   = FIXED_DURATION  # 179초
-        cta_dur   = CTA_END - CTA_START  # 5초
+        CTA_START = 52.0   # 59초 영상 기준 마지막 7초
+        CTA_END   = FIXED_DURATION  # 59초
+        cta_dur   = CTA_END - CTA_START  # 7초
 
         CW, CH = TARGET_W, 320
         cta_img = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
@@ -520,6 +545,8 @@ ${plan.tags.join(', ')}
             if (plan.hookVideoUrl) {
                 const videoBlob = await (await fetch(plan.hookVideoUrl)).blob();
                 root.file("hook.mp4", videoBlob);
+            } else if (userHookVideo) {
+                root.file("hook.mp4", userHookVideo);
             }
             if (plan.storyImageUrls) {
                 for (let i = 0; i < plan.storyImageUrls.length; i++) {
@@ -529,7 +556,37 @@ ${plan.tags.join(', ')}
             }
             root.file("render.py", finalizedRenderScript);
             if (userBgm) root.file(`bgm.${userBgm.name.split('.').pop()}`, userBgm);
-            root.file("README.txt", "1. pip install moviepy==1.0.3 pillow numpy\n2. python render.py\n\nYouTube 알고리즘 최적화 데이터가 포함되어 있습니다.");
+            root.file("README.txt", `
+==================================================
+🎬 MYSTERY FACTORY PRO — Production Kit v37.1
+==================================================
+
+[설치 방법]
+pip install moviepy==1.0.3 pillow numpy
+
+[실행 방법]
+python render.py
+
+[폴더 구조 확인]
+- render.py        ← 메인 렌더 스크립트
+- narration.wav    ← AI 나레이션 오디오
+- subtitles_*.srt  ← 자막 싱크 파일
+- hook.mp4         ← 훅 인트로 영상
+- story_*.png      ← 스토리 이미지 시퀀스
+- bgm.*            ← 배경음악 파일
+- youtube_metadata.txt ← 유튜브 업로드용 메타데이터
+
+[SFX 공포 음향]
+시스템이 numpy로 자동 합성 → WAV 변환
+→ MoviePy 1.0.3 AudioFileClip으로 로드 (scipy 불필요)
+
+[주의사항]
+- Python 3.8 ~ 3.10 권장
+- ffmpeg가 설치되어 있어야 영상 출력 가능
+  설치: https://ffmpeg.org/download.html
+
+==================================================
+`);
 
             const blob = await zip.generateAsync({ type: "blob" });
             const a = document.createElement("a");
@@ -588,7 +645,7 @@ ${plan.tags.join(', ')}
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Audio Layer: Atmosphere</span>
                         <span className="text-[9px] text-indigo-500 font-bold">배경음악 선택</span>
                     </div>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center mb-4">
                         <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${userBgm ? 'bg-emerald-100' : 'bg-slate-200'}`}>
                                 <Music className={userBgm ? 'text-emerald-600' : 'text-slate-400'} size={18} />
@@ -596,6 +653,28 @@ ${plan.tags.join(', ')}
                             <span className="text-sm font-bold text-slate-700">Atmosphere BGM</span>
                         </div>
                         {userBgm ? <CheckCircle2 className="text-emerald-500" size={24} /> : <span className="text-[10px] font-black text-slate-300">미선택</span>}
+                    </div>
+                    {/* BGM 볼륨 슬라이더 */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                                {bgmVolume === 0 ? <VolumeX size={13} className="text-slate-400" /> : <Volume2 size={13} className="text-emerald-500" />}
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">BGM 볼륨</span>
+                            </div>
+                            <span className="text-[11px] font-black text-emerald-600">{Math.round(bgmVolume * 100)}%</span>
+                        </div>
+                        <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={bgmVolume}
+                            onChange={(e) => onBgmVolumeChange(parseFloat(e.target.value))}
+                            className="w-full h-1.5 rounded-full accent-emerald-500 cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[9px] text-slate-300 font-bold">
+                            <span>조용</span><span>권장 18%</span><span>크게</span>
+                        </div>
                     </div>
                 </div>
             </div>

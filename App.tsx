@@ -1,13 +1,19 @@
 
-import React, { useState, useEffect } from 'react';
-import { Sparkles, Loader2, Wand2, Image as ImageIcon, Zap, Laugh, Ghost, Moon, Rocket, AlertTriangle, Eye, Move, MapPin, Skull, Key, Grid, LayoutDashboard, Terminal, Info, RefreshCw, Languages, Volume2, Play, Youtube } from 'lucide-react';
-import { generateHealingPlan, generateHealingImage, generateHookImage, generateHealingAudio, generateHealingVideo } from './services/geminiService';
-import { HealingPlan, GenerationStep, VisualStyle, PersonaType, Persona, MysteryEffect, SfxType, ContentLanguage } from './types';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Sparkles, Loader2, Wand2, Image as ImageIcon, Zap, Laugh, Ghost, Moon, Rocket, AlertTriangle, Eye, Move, MapPin, Skull, Key, Grid, LayoutDashboard, Terminal, Info, RefreshCw, Languages, Volume2, Play, Youtube, StopCircle, History, Plus, Trash2, ChevronDown, ChevronUp, ListPlus, X, TrendingUp, Flame, Mic, Type, Calendar } from 'lucide-react';
+import { generateHealingPlan, generateHealingImage, generateHookImage, generateHealingAudio, generateHealingVideo, generateTopicSuggestions } from './services/geminiService';
+import { saveHistoryToFirestore, loadHistoryFromFirestore, deleteHistoryFromFirestore } from './services/firebaseService';
+import { HealingPlan, GenerationStep, VisualStyle, PersonaType, Persona, MysteryEffect, SfxType, ContentLanguage, BatchQueueItem, HistoryItem } from './types';
 import { ScriptCard } from './components/ScriptCard';
 import { VideoPreview } from './components/VideoPreview';
 import { PythonExport } from './components/PythonExport';
 import { playSfxPreview } from './utils/sfxPlayer';
+import { saveToLocalStorage } from './utils/autoSave';
 import YoutubeUploadModal from './components/YoutubeUploadModal';
+import ThumbnailEditor from './components/ThumbnailEditor';
+import { BGM_LIBRARY, BgmTrack, pickRandomBgm, fetchBgmAsFile } from './utils/bgmLibrary';
+import ContentCalendar from './components/ContentCalendar';
+import { generateSeriesPlan, SeriesEpisode } from './services/geminiService';
 
 
 declare global {
@@ -25,10 +31,10 @@ interface ExtendedPersona extends Persona {
 }
 
 const PERSONAS: ExtendedPersona[] = [
-  { id: 'success', name: '成功への刺激', name_kr: '성공의 자극', icon: 'Rocket', description: '동기부여 및 성공학', color: 'bg-yellow-950 text-yellow-400 border-yellow-900', label: 'Success' },
-  { id: 'mystery', name: '都市伝説の真実', name_kr: '도시전설의 진실', icon: 'Ghost', description: '호기심과 충격적 진상', color: 'bg-red-950 text-red-400 border-red-900', label: 'Mystery' },
-  { id: 'dopamine', name: '爆笑スナック', name_kr: '폭소 스낵', icon: 'Laugh', description: '공감 일상 유머', color: 'bg-emerald-950 text-emerald-400 border-emerald-900', label: 'Comedy' },
-  { id: 'healer', name: '真夜中の癒やし', name_kr: '한밤중의 힐링', icon: 'Moon', description: '위로와 감성 콘텐츠', color: 'bg-purple-950 text-purple-400 border-purple-900', label: 'Healing' }
+  { id: 'urban_legend', name: '都市伝説・ミステリー', name_kr: '도시전설의 진실', icon: 'Ghost', description: '현대 괴담과 기묘한 사건', color: 'bg-red-950 text-red-400 border-red-900', label: 'Urban' },
+  { id: 'true_story', name: '実話・心霊体験', name_kr: '실화 괴담', icon: 'Eye', description: '소름 돋는 실제 체험담', color: 'bg-blue-950 text-blue-400 border-blue-900', label: 'True Story' },
+  { id: 'human_horror', name: 'ヒトコワ・狂気', name_kr: '심리적 공포', icon: 'Skull', description: '귀신보다 무서운 진짜 인간', color: 'bg-indigo-950 text-indigo-400 border-indigo-900', label: 'Psychological' },
+  { id: 'folklore_curse', name: '呪い・土着信仰', name_kr: '민간신앙과 저주', icon: 'AlertTriangle', description: '마을의 금기와 벗어날 수 없는 저주', color: 'bg-amber-950 text-amber-400 border-amber-900', label: 'Folklore' }
 ];
 
 const ALL_MYSTERY_PRESETS = [
@@ -42,30 +48,30 @@ const ALL_MYSTERY_PRESETS = [
   { title: "木の上の笑い声", title_kr: "나무 위의 웃음소리", query: "교토 후시미이나리 신사 폐쇄 구역 깊은 밤, 수십 미터 높이 삼나무 위에서 들려오는 어린아이의 웃음소리" },
   { title: "一本足の女", title_kr: "외다리 여인", query: "교토 산속 다리에서 불쑥 나타나는 다리가 하나인 여인, 만나는 자는 다음날 산 아래에서 죽은 채 발견된다" },
   { title: "電話鬼", title_kr: "전화 귀신", query: "바다 면한 당주에 있는 공중전화로부터 반복적으로 일본어로 수신되는 전화, 수신자 모두 3일 이내 실종" },
-  { title: "善哉架橋", title_kr: "선재집", query: "가오롱의 사찰에서 10년마다 한 번씩 발굴되는 미성년 소녀의 유해, DNA 검사는 항상 '0세 이하'로 판정되는 에도 현상" },
-  { title: "香川県の海", title_kr: "카가와 해수욕", query: "히노타 포리에서 자릴 잡은 슬롯머신의 비밀 방, 연속으로 사라지는 업주원들과 그들이 남기는 시력한 메모" },
-  { title: "山の決し掃い", title_kr: "산의 다다조지이", query: "후지시를 등산하던 등산객들이 외롭긴 잡유에 끔이는 걸 목격. 산에서는 메아리가 죽은 자를 다다론다는 일본 전설" },
-  { title: "深夜のコンビニ", title_kr: "심야 편의점", query: "일본 전국 편의점 CCTV에 반복된다는 너만 바지를 입은 존재, 카메라 압력위에요 트리위엔음의시간돌 직원만에게만 보인다" },
-  { title: "決して教えない部屋", title_kr: "절대 가르쳐 주지 않는 방", query: "최신 이사한 집에는 반드시 '1수 더 많은 방'이 있다는 일본 부동산 굴이. 새 세입자마다 발견하는 모르는 메모" },
-  { title: "水川の面", title_kr: "물강의 얼굴", query: "시즈오카의 시보가슴 강에서 매년 발견되는 신원 미상 얼굴, 부검고에는 '3년 전에 사망'이라는 좌치를 알 수 없는 결과가 나온다" },
-  { title: "呪いの山田", title_kr: "저주의 논지", query: "투표마다 짝수로 번렉치를 쓰는 확률로 유명한 경기도의 논지, 그 논지 주인의 5대째 에도 현상과 기형 범죄 담당 상관관계" },
-  { title: "入れ替わりの恋人", title_kr: "입품 교대의 연인", query: "정확히 자정 솔에 교대되는 오사카 커플, 7년간 요코하마를 철도를 타도 여성이 뭇 달러 접근하는 남성'" },
-  { title: "犬が返ってこない山", title_kr: "개가 돌아오지 않는 산", query: "개를 데리고 등산하면 반드시 음신 펀체 달리는 나가이와코와 타무라 산의 커다란 비밀, 돌아온 개는 두 번 다시 슬라지지 않는다" },
-  { title: "印籠さまの訴え", title_kr: "인세이먹의 저주", query: "에도 시대 7인의 사무라이가 안토 평은후 하나로 남긴 저주의 편지, 네 체인에 담긴 여인을 다시 만다 때까지 누구도 죽지 않는다" },
-  { title: "ブラッククリスマス", title_kr: "블랙 크리스마스", query: "크리스마스 전날 중앙도파매한 일본의 어린이에게 맨션 바꿔옵니다는 맞춤 화이트업의 필에다 안상 상자의 정체" },
-  { title: "正年の饋養者", title_kr: "정원 대나 인간", query: "음력 정월 복도를 폰다 나타나는 또 다른 사람의 모습으로 눈을 마주치는 짤마 나라 'can적대리인간', 목갛으면 운이 달아나는다" },
-  { title: "天井裸足", title_kr: "천장 나해발", query: "에도 시대 집터 형제에서 말성먹는 동생의 나해발을 천장에 달아 놓은 비에, 집터 분가도 회복되지 않는다는 100년 전설" },
-  { title: "混じり無しの電車", title_kr: "혼잡없는 전차", query: "도스미 대진늡 시간대 즐취만 연결되는 특정 카 안에 타면 다음 역에서 반드시 안개가 끌려 시야가 0으로 때어진다" },
-  { title: "学校の七不思議", title_kr: "학교의 7가지 불가사의", query: "도쿄 중학교 훈실 장 안에서 다음 수업시간에 등장하는 당당하지 않은 학가형 서보드, 여넘 7번째 불가사의는 '4번방 덧심대' 이다" },
-  { title: "死後のSNS", title_kr: "사후 SNS", query: "몇 주전 사망한 자녀의 계정에서 지속적으로 주어지는 '.나 지금 대늡에 있다' 라는 DM, 헤더 끊어도 계속 스킬록 사진가 와단 다" },
-  { title: "医者に臣える鬼", title_kr: "의사에게 배우는 유령", query: "교토 대학 의학부 해부학 실습 도중 시신을 한다는 다이에란 제보하자 시신도 관리자도 없어질 때의 맥스터하이 주프날 작성자의 복수" },
-  { title: "消えた町の記憶", title_kr: "사라진 마을의 기억", query: "도쿄 에시로 오코미 마을에서 64세 노인이 '40년 전 이 지역에 문컨 번화하는 마을이 있었다'는 증언, 지도에도 경역에도 흔적이 없다" },
-  { title: "海の底の消灯台", title_kr: "바다 속 등대수로", query: "시즈오화 도리베 마음'0' 머래통누 하며 쉽지 않은 다이버들이 발견하는 수심 20m에 불이 켜지는 역대 등대수로, 취원함은 역대 해영사'0사" },
-  { title: "白い筒の乱舎", title_kr: "흰 구덩의 목책", query: "제자들에게서 특정 가라오케를 로컷대에서 세우는 빈 구덩 속에서 들려오는 측가없는 남을 목소리에 다 함구동한 신주들에서 별다간에 끝랄" },
-  { title: "嫌いな窓外", title_kr: "싫은 창밖", query: "도쿄 마루노우치 선 전도 22닌 창측의 잘 보이는 특정 자리, 그 자리와 서는 쑤매 4명은 정신송르지 헸는 의학적 연구보고를봐러온 다」" },
-  { title: "雨の夕の消滅孩", title_kr: "비의 저녁 실종아이", query: "에히메 현 호우 마을에서 비오는 날마다 연령대가 다른 아이들이 같은 지점에서 사라로니를, 북경오라는 마을 뜰밖에겠다는 제보 당당 교유사의 반론" },
-  { title: "耐忍の無人島", title_kr: "인내의 무인도", query: "오키나와 무인도를 횡수하다 발건한 특이한 서아르는 사류들, 같이 뒤 어부는 장가 엘리트 대원에 서 다 넙대로 맨 지나갑자기 사망합니다" },
-  { title: "神社の竜篝", title_kr: "신사의 용른두리", query: "훗도 신사를 찾은 리포터가 동구락 컨 나무에 열린 용두 돌리기 구멍에서 갖안온 단란한 눈에 은박하는 수백의 얼굴들을 목격" },
+  { title: "善哉架橋", title_kr: "선재집", query: "오사카 특정 사찰에서 10년에 한 번씩 발굴되는 신원 미상 아이의 유해, DNA 검사 결과 항상 신원 불명 판정이 나오며 주지의 5대 연속 불가사의한 죽음이 이어진다" },
+  { title: "香川県の海", title_kr: "카가와 해수욕장", query: "카가와현 해수욕장 특정 구역에서 매년 여름 실종되는 수영객들, 수색대가 발견한 것은 모래 위에 가지런히 정렬된 신발뿐이었다" },
+  { title: "山の禁じ道", title_kr: "산의 금지된 길", query: "후지산 특정 등산로에서 메아리가 들리면 절대 돌아봐선 안 된다는 금기, 메아리는 이미 죽은 자가 산을 내려오라고 부르는 소리라는 100년 전설" },
+  { title: "深夜のコンビニ", title_kr: "심야 편의점", query: "일본 전국 편의점 CCTV에 새벽 3시마다 포착되는 정체불명의 인물, 직원에게만 보이고 고객의 눈에는 보이지 않으며 그 직원들은 일주일 내에 사직서를 낸다" },
+  { title: "決して教えない部屋", title_kr: "절대 가르쳐 주지 않는 방", query: "새로 이사한 집에는 반드시 도면에 없는 방이 하나 더 있다는 일본 부동산 괴담, 새 세입자마다 그 방 안에서 이전 거주자의 수수께끼 메모를 발견한다" },
+  { title: "水川の仮面", title_kr: "강의 가면", query: "시즈오카 특정 강에서 매년 발견되는 신원 미상 얼굴 가면, 부검 결과 항상 3년 전에 사망이라는 불가사의한 결론이 나오며 강 주변 주민 모두 꿈에서 같은 얼굴을 본다" },
+  { title: "呪いの田", title_kr: "저주의 논", query: "교토 외곽 특정 논에서 대대로 이어지는 저주, 그 논 소유 가문의 5대째까지 모두 같은 날짜에 사망했으며 현재 그 날이 다가오고 있다" },
+  { title: "入れ替わりの恋人", title_kr: "바뀐 연인", query: "정확히 자정에 성격이 완전히 바뀌는 오사카 남성, 7년간 동거한 여자친구는 낮의 그와 밤의 그는 완전히 다른 사람이라며 실종 직전 충격적인 영상을 남겼다" },
+  { title: "犬が返ってこない山", title_kr: "개가 돌아오지 않는 산", query: "나가노현 특정 산을 개와 함께 오르면 개만 돌아오지 않는다는 괴담, 돌아온 개들은 하나같이 산 방향을 바라보며 짖기를 평생 멈추지 않는다" },
+  { title: "印籠の呪い", title_kr: "인장의 저주", query: "에도 시대 7인의 사무라이가 남긴 저주의 문서, 문서에 이름이 오른 가문의 후손들이 현대에도 같은 방식으로 죽어가고 있다는 계보 추적 충격 기록" },
+  { title: "ブラッククリスマス", title_kr: "블랙 크리스마스", query: "크리스마스 이브 자정 일본 각지 어린이들의 꿈에 동시에 나타나는 검은 산타, 아이들이 아침에 일어나 그린 그림 속 얼굴이 모두 동일한 충격 사건" },
+  { title: "正月の訪問者", title_kr: "정월의 방문자", query: "음력 설날 새벽 자신의 모습과 똑같은 존재가 문을 두드린다는 일본 전통 괴담, 눈을 마주치면 그 해 운이 모두 빠져나간다는 경고가 대대로 전해진다" },
+  { title: "天井の裸足", title_kr: "천장의 맨발", query: "에도 시대 분가한 집 천장에서 들려오는 맨발 걷는 소리, 100년이 지난 지금도 그 건물 터에 세운 신축 아파트에서 같은 소리가 들린다는 신고가 이어진다" },
+  { title: "混じり無しの電車", title_kr: "텅 빈 전차", query: "도쿄 특정 지하철 노선 마지막 열차의 특정 칸, 그 칸에 타면 다음 역에서 반드시 짙은 안개가 차 안을 가득 채우며 탑승자들은 종점에서 기억을 잃은 채 발견된다" },
+  { title: "学校の七不思議", title_kr: "학교의 7가지 불가사의", query: "도쿄 한 중학교에서 전해지는 7번째 불가사의, 밤 11시 4번 교실 문을 7번 두드리면 1년 전 전학 간 학생의 목소리가 응답하며 전학 기록은 존재하지 않는다" },
+  { title: "死後のSNS", title_kr: "사후 SNS", query: "3주 전 교통사고로 사망한 청년의 SNS 계정에서 지속적으로 올라오는 근황 사진들, 사진 배경은 모두 그가 죽기 전 가보고 싶다고 말했던 장소들이다" },
+  { title: "医学部の怪談", title_kr: "의대의 괴담", query: "교토 대학 의학부 해부학 실습실에 2010년부터 전해지는 괴담, 새벽 2시에 실습실에 혼자 들어가면 이미 해부된 시신이 스스로 봉합되어 일어선다" },
+  { title: "消えた町の記憶", title_kr: "사라진 마을의 기억", query: "도쿄 한 구역에 40년 전 번화한 마을이 있었다는 노인의 증언, 지도와 사진 어디에도 흔적이 없으며 그 자리에 서면 지금도 시장 소음이 들린다고 한다" },
+  { title: "海底の灯台", title_kr: "해저 등대", query: "시즈오카 해안 수심 20m 해저에서 밤마다 불빛이 깜박이는 등대 구조물, 다이버들이 접근하면 영상이 끊기고 귀환한 뒤 잠수 중의 기억이 사라진다고 한다" },
+  { title: "予言の歌声", title_kr: "예언의 노랫소리", query: "특정 가라오케 건물 지하 빈 방에서 들려오는 노래 소리, 내용은 아직 발생하지 않은 미래 뉴스이며 그 예언들이 모두 적중했다" },
+  { title: "嫌いな窓外", title_kr: "불길한 창가", query: "마루노우치선 특정 좌석에 앉으면 반드시 창밖에서 손을 흔드는 여자가 보인다는 괴담, 그 여자를 목격한 네 명은 모두 정신과 치료를 받고 있다" },
+  { title: "雨の夜の失踪", title_kr: "비오는 밤의 실종", query: "에히메현 특정 마을에서 비오는 날마다 다른 연령대의 아이들이 같은 지점에서 실종된다, 마을 신도비에 비에 젖은 아이를 따라가지 말라는 경고가 새겨져 있다" },
+  { title: "無人島の日誌", title_kr: "무인도의 일지", query: "오키나와 무인도에서 발견된 오래된 생존 일지들, 내용은 모두 오늘도 그것이 왔다로 끝나며 탐험대원들은 귀환 후 모두 같은 악몽을 꾸었다고 한다" },
+  { title: "神社の竜の穴", title_kr: "신사의 용 구멍", query: "홋카이도 특정 신사 경내 거대한 나무에 뚫린 구멍, 손을 넣으면 수백 개의 눈동자가 손을 잡아당기는 감각을 느낀다는 체험담이 전국에서 이어진다" },
 ];
 
 // 랜덤하게 중복 없이 8개 선택
@@ -80,21 +86,56 @@ export default function App() {
   const [topic, setTopic] = useState('');
   const [step, setStep] = useState<GenerationStep>(GenerationStep.IDLE);
   const [visualStyle, setVisualStyle] = useState<VisualStyle>('cinematic_real');
-  const [selectedPersona, setSelectedPersona] = useState<PersonaType>('mystery');
+  const [selectedPersona, setSelectedPersona] = useState<PersonaType>('urban_legend');
   const [selectedEffects, setSelectedEffects] = useState<MysteryEffect[]>(['night_vision', 'film_jitter']);
   const [selectedSfx, setSelectedSfx] = useState<SfxType[]>(['horror_noise', 'heartbeat']);
   const [hookText, setHookText] = useState<string>('都市伝説');
   const [plan, setPlan] = useState<HealingPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
+  const [activeTab, setActiveTab] = useState<'preview' | 'code' | 'calendar'>('preview');
   const [videoStatus, setVideoStatus] = useState<string>('');
   const [imgProgress, setImgProgress] = useState({ current: 0, total: 0 });
 
   const [userBgm, setUserBgm] = useState<File | null>(null);
+  const [userHookVideo, setUserHookVideo] = useState<File | null>(null);
   const [hasVideoKey, setHasVideoKey] = useState(false);
+  // BGM 자동 선택 state
+  const [selectedBgmTrack, setSelectedBgmTrack] = useState<BgmTrack | null>(null);
+  const [isBgmLoading, setIsBgmLoading] = useState(false);
 
-  // 언어 선택 state (기본값: 일본어)
+  // 언어 선택
   const [contentLanguage, setContentLanguage] = useState<ContentLanguage>('ja');
+
+  // BGM 볼륨 (기본 18%)
+  const [bgmVolume, setBgmVolume] = useState(0.18);
+
+  // TTS 보이스 선택
+  const [ttsVoice, setTtsVoice] = useState('Charon');
+  // 시리즈 기획 state
+  const [showSeries, setShowSeries] = useState(false);
+  const [seriesEpisodes, setSeriesEpisodes] = useState<SeriesEpisode[]>([]);
+  const [isSeriesLoading, setIsSeriesLoading] = useState(false);
+
+  // ① 생성 취소용 ref
+  const cancelledRef = useRef(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  // ② 생성 이력 (Firestore)
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // ③ 배치 생성 큐
+  const [batchQueue, setBatchQueue] = useState<BatchQueueItem[]>([]);
+  const [batchInput, setBatchInput] = useState('');
+  const [showBatch, setShowBatch] = useState(false);
+  const [isBatchRunning, setIsBatchRunning] = useState(false);
+
+  // ④ 이미지 드래그 state
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+
+  // ⑤ AI 주제 추천 state
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
 
   // 프리셋 새로고침 state
   const [presetIndices, setPresetIndices] = useState<number[]>(() =>
@@ -105,6 +146,105 @@ export default function App() {
 
   // 현재 재생 중인 SFX
   const [playingSfx, setPlayingSfx] = useState<SfxType | null>(null);
+
+  // 인기 소재 TOP5 힌트 패널
+  const [showTrending, setShowTrending] = useState(false);
+
+  // API 키가 있으면 Video 기능 활성화
+  useEffect(() => {
+    if (process.env.API_KEY) setHasVideoKey(true);
+  }, []);
+
+  // Firestore에서 이력 초기 로드
+  useEffect(() => {
+    loadHistoryFromFirestore()
+      .then(items => setHistory(items))
+      .catch(() => {
+        // Firestore 실패 시 LocalStorage 폴백
+        try {
+          const raw = localStorage.getItem('mf_history');
+          if (raw) setHistory(JSON.parse(raw));
+        } catch {}
+      })
+      .finally(() => setHistoryLoading(false));
+  }, []);
+
+  // 이력 저장 함수 - Firestore 저장 (이미지 base64 제외)
+  const saveToHistory = useCallback((newPlan: HealingPlan, topicText: string) => {
+    const planForStorage: HealingPlan = {
+      ...newPlan,
+      storyImageUrls: undefined,
+      hookImageUrl: undefined,
+      hookVideoUrl: undefined,
+      backgroundVideoUrl: undefined,
+      backgroundImageUrl: undefined,
+      audioBase64: undefined,
+    };
+    const item = {
+      topic: topicText,
+      createdAt: new Date().toLocaleString('ko-KR'),
+      plan: planForStorage,
+      language: contentLanguage,
+      bgmVolume,
+    };
+    // Firestore 저장
+    saveHistoryToFirestore(item)
+      .then(id => {
+        setHistory(prev => [{ id, ...item }, ...prev].slice(0, 30));
+      })
+      .catch(() => {
+        // 실패 시 LocalStorage 폴백
+        const fallback: HistoryItem = { id: Date.now().toString(), ...item };
+        setHistory(prev => {
+          const next = [fallback, ...prev].slice(0, 20);
+          try { localStorage.setItem('mf_history', JSON.stringify(next)); } catch {}
+          return next;
+        });
+      });
+  }, [contentLanguage, bgmVolume]);
+
+  // 플랜 자동 저장 (변경 후 5초 뒤)
+  useEffect(() => {
+    if (!plan) return;
+    const timer = setTimeout(() => {
+      saveToLocalStorage(plan, userBgm);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [plan, userBgm]);
+
+  // 이력에서 불러오기
+  const loadFromHistory = (item: HistoryItem) => {
+    setPlan(item.plan);
+    setTopic(item.topic);
+    setContentLanguage(item.language);
+    setBgmVolume(item.bgmVolume);
+    setStep(GenerationStep.COMPLETED);
+    setShowHistory(false);
+  };
+
+  // 이력 삭제 (Firestore)
+  const deleteHistory = (id: string) => {
+    deleteHistoryFromFirestore(id).catch(() => {});
+    setHistory(prev => prev.filter(h => h.id !== id));
+  };
+
+  // 이미지 드래그 재배치
+  const handleImageDragStart = (e: React.DragEvent, idx: number) => {
+    setDragIndex(idx);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const handleImageDrop = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === idx || !plan?.storyImageUrls) return;
+    const urls = [...plan.storyImageUrls];
+    const prompts = [...plan.story_image_prompts];
+    const [dragUrl] = urls.splice(dragIndex, 1);
+    const [dragPrompt] = prompts.splice(dragIndex, 1);
+    urls.splice(idx, 0, dragUrl);
+    prompts.splice(idx, 0, dragPrompt);
+    setPlan(prev => prev ? { ...prev, storyImageUrls: urls, story_image_prompts: prompts } : null);
+    setDragIndex(null);
+  };
 
   const handleRefreshPresets = () => {
     setIsPresetRefreshing(true);
@@ -119,7 +259,6 @@ export default function App() {
 
   const visiblePresets = presetIndices.map(i => ALL_MYSTERY_PRESETS[i]);
 
-
   useEffect(() => {
     const checkKey = async () => {
       const hasKey = await window.aistudio?.hasSelectedApiKey();
@@ -128,17 +267,21 @@ export default function App() {
     checkKey();
   }, []);
 
-  const handleGenerate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!topic.trim()) return;
+  const handleGenerate = async (e: React.FormEvent, overrideTopic?: string) => {
+    e?.preventDefault();
+    const activeTopic = overrideTopic || topic;
+    if (!activeTopic.trim()) return;
 
+    cancelledRef.current = false;
+    setIsCancelling(false);
     setStep(GenerationStep.GENERATING_SCRIPT);
     setError(null);
     setPlan(null);
     setImgProgress({ current: 0, total: 0 });
 
     try {
-      const generatedPlan = await generateHealingPlan(topic, selectedPersona);
+      const generatedPlan = await generateHealingPlan(activeTopic, selectedPersona);
+      if (cancelledRef.current) { setStep(GenerationStep.IDLE); return; }
       generatedPlan.selectedEffects = selectedEffects;
       generatedPlan.selectedSfx = selectedSfx;
       generatedPlan.hookText = hookText;
@@ -149,11 +292,13 @@ export default function App() {
       setStep(GenerationStep.GENERATING_IMAGE);
 
       const hookUrl = await generateHookImage(generatedPlan.hook_image_prompt, visualStyle);
+      if (cancelledRef.current) { setStep(GenerationStep.IDLE); return; }
       const storyUrls: string[] = [];
 
       for (let i = 0; i < prompts.length; i++) {
+        if (cancelledRef.current) break;
         setImgProgress(prev => ({ ...prev, current: i + 1 }));
-        const url = await generateHealingImage(generatedPlan.mood, topic, prompts[i], visualStyle);
+        const url = await generateHealingImage(generatedPlan.mood, activeTopic, prompts[i], visualStyle);
         if (url) {
           storyUrls.push(url);
           setPlan(prev => prev ? ({ ...prev, storyImageUrls: [...storyUrls] }) : null);
@@ -161,22 +306,28 @@ export default function App() {
         await new Promise(r => setTimeout(r, 100));
       }
 
+      if (cancelledRef.current) { setStep(GenerationStep.IDLE); return; }
+
       setStep(GenerationStep.GENERATING_AUDIO);
       const narrationScript = contentLanguage === 'ko' ? generatedPlan.script_kr : generatedPlan.script_ja;
-      const audioBase64 = await generateHealingAudio(narrationScript);
+      const audioBase64 = await generateHealingAudio(narrationScript, ttsVoice);
 
-      setPlan(prev => prev ? ({
-        ...prev,
+      const finalPlan: HealingPlan = {
+        ...generatedPlan,
         selectedEffects,
         storyImageUrls: storyUrls,
         hookImageUrl: hookUrl,
         audioBase64: audioBase64 || undefined
-      }) : null);
-
+      };
+      setPlan(finalPlan);
       setStep(GenerationStep.COMPLETED);
-    } catch (err: any) {
-      const errorMessage = err.message || "알 수 없는 오류가 발생했습니다.";
 
+      // ② 이력에 자동 저장
+      saveToHistory(finalPlan, activeTopic);
+
+    } catch (err: any) {
+      if (cancelledRef.current) { setStep(GenerationStep.IDLE); return; }
+      const errorMessage = err.message || "알 수 없는 오류가 발생했습니다.";
       if (errorMessage.includes("API_KEY_MISSING")) {
         setError("🔑 API 키가 설정되지 않았습니다. .env.local 파일에 GEMINI_API_KEY를 추가해주세요.");
       } else if (errorMessage.includes("QUOTA_EXCEEDED")) {
@@ -186,40 +337,86 @@ export default function App() {
       } else {
         setError(`❌ 오류 발생: ${errorMessage}`);
       }
-
       setStep(GenerationStep.ERROR);
     }
+  };
+
+  // ① 생성 취소
+  const handleCancel = () => {
+    cancelledRef.current = true;
+    setIsCancelling(true);
+    setVideoStatus('');
+  };
+
+  // ③ 배치 생성 시작
+  const handleBatchAdd = () => {
+    const lines = batchInput.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return;
+    const items: BatchQueueItem[] = lines.map(l => ({ id: Date.now() + Math.random() + l, topic: l, status: 'pending' }));
+    setBatchQueue(prev => [...prev, ...items]);
+    setBatchInput('');
+  };
+
+  const handleBatchStart = async () => {
+    if (isBatchRunning) return;
+    setIsBatchRunning(true);
+    for (let i = 0; i < batchQueue.length; i++) {
+      if (cancelledRef.current) break;  // 취소 요청 시 배치 중단
+      const item = batchQueue[i];
+      if (item.status !== 'pending') continue;
+      setBatchQueue(prev => prev.map((q, idx) => idx === i ? { ...q, status: 'running' } : q));
+      try {
+        await handleGenerate(null as any, item.topic);
+        setBatchQueue(prev => prev.map((q, idx) => idx === i ? { ...q, status: 'done' } : q));
+      } catch {
+        setBatchQueue(prev => prev.map((q, idx) => idx === i ? { ...q, status: 'error', errorMsg: '생성 실패' } : q));
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    setIsBatchRunning(false);
   };
 
   const handleAnimateHook = async () => {
     if (!plan?.hookImageUrl) return;
     setStep(GenerationStep.GENERATING_HOOK_VIDEO);
     setVideoStatus("Veo 3.1 영상 엔진 가속 중... (映像エンジン起動中)");
+    setError(null);
 
     try {
-      const resp = await fetch(plan.hookImageUrl);
-      const blob = await resp.blob();
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        try {
-          const videoUrl = await generateHealingVideo(
-            reader.result as string,
-            topic,
-            (msg) => setVideoStatus(msg)
-          );
-          if (videoUrl) {
-            setPlan(prev => prev ? ({ ...prev, hookVideoUrl: videoUrl }) : null);
-          }
-          setStep(GenerationStep.COMPLETED);
-          setVideoStatus("");
-        } catch (innerErr: any) {
-          setError("영상 생성 오류: " + innerErr.message);
-          setStep(GenerationStep.COMPLETED);
-        }
-      };
-      reader.readAsDataURL(blob);
-    } catch (e: any) {
-      setError("오류: " + e.message);
+      // data URL인 경우 직접 base64 추출 (fetch 불필요)
+      let imageBase64: string;
+      if (plan.hookImageUrl.startsWith('data:')) {
+        imageBase64 = plan.hookImageUrl;
+      } else {
+        // URL인 경우 fetch → base64 변환
+        const resp = await fetch(plan.hookImageUrl);
+        if (!resp.ok) throw new Error(`이미지 로드 실패: ${resp.status}`);
+        const blob = await resp.blob();
+        imageBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      const videoUrl = await generateHealingVideo(
+        imageBase64,
+        topic,
+        (msg) => setVideoStatus(msg)
+      );
+      if (videoUrl) {
+        setPlan(prev => prev ? ({ ...prev, hookVideoUrl: videoUrl }) : null);
+      }
+      setStep(GenerationStep.COMPLETED);
+      setVideoStatus("");
+    } catch (err: any) {
+      const msg = err.message || '';
+      if (msg.includes('VIDEO_MODEL_NOT_FOUND') || msg.includes('404')) {
+        setError('🎥 Veo 모델 접근 불가: AI Studio에서 API 키를 다시 발급받거나 Veo 미리보기 승인이 필요합니다.');
+      } else {
+        setError('영상 생성 오류: ' + msg);
+      }
       setStep(GenerationStep.COMPLETED);
     }
   };
@@ -258,6 +455,7 @@ export default function App() {
   const [editingIndex, setEditingIndex] = useState<{ index: number | 'hook', prompt: string } | null>(null);
 
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showThumbnailEditor, setShowThumbnailEditor] = useState(false);
   const isGenerating = step !== GenerationStep.IDLE && step !== GenerationStep.COMPLETED && step !== GenerationStep.ERROR;
 
   return (
@@ -272,7 +470,7 @@ export default function App() {
           </div>
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 bg-red-950 text-red-300 text-[9px] font-black rounded uppercase tracking-widest border border-red-900">Mystery Factory Pro</span>
-            <p className="text-[#6B4A4A] text-[10px] font-bold uppercase tracking-widest">V3.6 JP Mystery Lab</p>
+            <p className="text-[#6B4A4A] text-[10px] font-bold uppercase tracking-widest">V3.8 JP Mystery Lab</p>
           </div>
         </div>
 
@@ -295,7 +493,7 @@ export default function App() {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-2 bg-[#1A1A2A] rounded-lg">
-                      {p.id === 'success' ? <Rocket size={16} /> : p.id === 'mystery' ? <Ghost size={16} /> : p.id === 'dopamine' ? <Laugh size={16} /> : <Moon size={16} />}
+                      {p.id === 'urban_legend' ? <Ghost size={16} /> : p.id === 'true_story' ? <Eye size={16} /> : p.id === 'human_horror' ? <Skull size={16} /> : <AlertTriangle size={16} />}
                     </div>
                   </div>
                   <p className="text-xs font-black mb-1">{p.name}</p>
@@ -328,7 +526,7 @@ export default function App() {
                 <button
                   key={`${presetIndices[i]}-${i}`}
                   type="button"
-                  onClick={() => { setTopic(p.query); setSelectedPersona('mystery'); }}
+                  onClick={() => { setTopic(p.query); setSelectedPersona('urban_legend'); }}
                   disabled={isGenerating}
                   className="px-4 py-3 bg-[#12121E] border border-[#2A1A1A] rounded-xl text-xs font-bold text-[#C0B0A0] hover:border-red-700 hover:shadow-md hover:shadow-red-950 transition-all text-left flex items-center justify-between group"
                 >
@@ -396,8 +594,78 @@ export default function App() {
             </p>
           </div>
 
+          {/* ===== 4. 이미지 스타일 뱅크 ===== */}
           <div>
-            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">4. Master Topic (주제 입력)</label>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">
+              4. Image Style Bank (비주얼 스타일)
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { id: 'cinematic_real',  emoji: '🎥', label: 'Cinematic Real',  desc: '실사 시네마틱', tag: '기본' },
+                { id: 'j_horror_classic',emoji: '👁', label: 'J-Horror Classic', desc: '링/주온 스타일', tag: '🔥추천' },
+                { id: 'manga_noir',      emoji: '🖤', label: 'Manga Noir',       desc: '흑백 망가 느낌', tag: '' },
+                { id: 'vintage_film',    emoji: '📽', label: 'Vintage Film',     desc: '8mm 필름 질감', tag: '' },
+                { id: 'cctv_cam',        emoji: '📹', label: 'CCTV Cam',         desc: '감시카메라 시점', tag: '⚡인기' },
+                { id: 'ukiyo_e_horror',  emoji: '🏮', label: 'Ukiyo-e Horror',   desc: '에도 목판화', tag: '' },
+              ] as { id: string; emoji: string; label: string; desc: string; tag: string }[]).map(s => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setVisualStyle(s.id as any)}
+                  disabled={isGenerating}
+                  className={`relative flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
+                    visualStyle === s.id
+                      ? 'border-amber-600 bg-amber-950/40 shadow-md shadow-amber-950'
+                      : 'border-[#1E1E2C] bg-[#12121E] hover:border-[#3A2A1A]'
+                  }`}
+                >
+                  {s.tag && (
+                    <span className="absolute top-1.5 right-1.5 text-[7px] font-black bg-amber-900 text-amber-300 px-1.5 py-0.5 rounded-full">{s.tag}</span>
+                  )}
+                  <span className="text-base">{s.emoji}</span>
+                  <span className={`text-[10px] font-black ${visualStyle === s.id ? 'text-amber-300' : 'text-[#C0B0A0]'}`}>{s.label}</span>
+                  <span className="text-[8px] text-[#6B5A5A] font-medium">{s.desc}</span>
+                  {visualStyle === s.id && (
+                    <span className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest">5. Master Topic (주제 입력)</label>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!history.length) return;
+                  try {
+                    const successTopics = history.slice(0, 10).map(h => h.topic);
+                    const suggestions = await generateTopicSuggestions(successTopics, 6);
+                    setAiSuggestions(suggestions);
+                  } catch {}
+                }}
+                disabled={isGenerating || !history.length}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-950 hover:bg-indigo-900 text-indigo-400 rounded-xl text-[10px] font-black border border-indigo-800 transition-all disabled:opacity-40"
+                title={!history.length ? "먼저 영상을 1편 생성해야 추천 가능" : "AI 주제 추천 (히트 패턴 분석)"}
+              >
+                <Sparkles size={11} />
+                AI 추천
+              </button>
+            </div>
+            {aiSuggestions.length > 0 && (
+              <div className="mb-3 p-3 bg-indigo-950/40 border border-indigo-800 rounded-2xl space-y-1.5">
+                <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2">💡 AI 분석 추천 주제 (클릭해서 선택)</p>
+                {aiSuggestions.map((s, i) => (
+                  <button key={i} type="button"
+                    onClick={() => { setTopic(s); setAiSuggestions([]); }}
+                    className="w-full text-left px-3 py-2 bg-[#12121E] hover:bg-indigo-950 border border-[#1E1E2C] hover:border-indigo-700 rounded-xl text-xs font-bold text-[#E8DDD0] transition-all">
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
             <textarea
               rows={3}
               className="w-full rounded-2xl border-2 border-[#1E1E2C] bg-[#0F0F1A] text-[#E8DDD0] placeholder-[#4A3A3A] focus:border-red-700 focus:bg-[#12121E] transition-all text-sm font-bold p-4 resize-none"
@@ -406,7 +674,43 @@ export default function App() {
               onChange={(e) => setTopic(e.target.value)}
               disabled={isGenerating}
             />
+
+            {/* 인기 소재 TOP5 힌트 패널 */}
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={() => setShowTrending(!showTrending)}
+                className="flex items-center gap-1.5 text-[9px] font-black text-amber-400 hover:text-amber-300 transition-colors"
+              >
+                <Flame size={10} />
+                지금 일본에서 뜨는 소재 TOP 5
+                {showTrending ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+              </button>
+              {showTrending && (
+                <div className="mt-2 p-3 bg-amber-950/20 border border-amber-900/40 rounded-2xl space-y-1">
+                  {[
+                    { rank: '1위', label: '특정 장소 실화 괴담', query: '東京の特定の場所に伝わる実話怪談、目撃者が初めて語る禁断の真相' },
+                    { rank: '2위', label: '실종 사건 미해결 미스터리', query: '未解決の失踪事件の真相、生存者が初めて語った衝撃の証言' },
+                    { rank: '3위', label: '심야 CCTV·편의점 괴담', query: '深夜コンビニのCCTVに映り込んだ正体不明の存在、店員だけに見えるもの' },
+                    { rank: '4위', label: '사후 SNS 활동 괴담', query: '死亡した人物のSNSから届き続けるメッセージ、その送信者の正体とは' },
+                    { rank: '5위', label: '학교 불가사의 시리즈', query: '某中学校の七不思議、誰も知らない8番目の不思議の真相が今明かされる' },
+                  ].map((item) => (
+                    <button
+                      key={item.rank}
+                      type="button"
+                      onClick={() => { setTopic(item.query); setShowTrending(false); setSelectedPersona('urban_legend'); }}
+                      className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-amber-900/30 transition-all group"
+                    >
+                      <span className="text-[9px] font-black text-amber-500 w-6 shrink-0">{item.rank}</span>
+                      <span className="text-[9px] font-bold text-[#C0B0A0] group-hover:text-[#E8DDD0] transition-colors">{item.label}</span>
+                    </button>
+                  ))}
+                  <p className="text-[8px] text-[#4A3A3A] font-bold pt-1">👆 클릭하면 주제 자동 입력됩니다</p>
+                </div>
+              )}
+            </div>
           </div>
+
 
           <div>
             <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">5. Viral Hook FX (영상 효과)</label>
@@ -518,40 +822,312 @@ export default function App() {
             <p className="text-[9px] text-slate-400 font-bold mt-1">📌 훅 영상 좌측에 세로로 표시되는 타이틀 문구</p>
           </div>
 
+          {/* ===== 9. TTS 나레이션 보이스 선택 ===== */}
           <div>
-            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">8. Background Music (BGM 업로드)</label>
-            <label className={`flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition-all ${userBgm ? 'bg-[#0A1210] border-emerald-700' : 'bg-[#12121E] border-[#1E1E2C] hover:border-amber-700'
-              }`}>
-              <div className={`p-3 rounded-xl ${userBgm ? 'bg-emerald-950' : 'bg-amber-950'}`}>
-                <Sparkles size={20} className={userBgm ? 'text-emerald-600' : 'text-amber-600'} />
-              </div>
-              <div className="flex-1">
-                <p className="text-xs font-black text-slate-900 mb-0.5">
-                  {userBgm ? userBgm.name : 'BGM 파일 선택'}
-                </p>
-                <p className="text-[9px] text-slate-400 font-medium">
-                  {userBgm ? 'MP3 준비완료' : 'MP3/WAV 필수'}
-                </p>
-              </div>
-              {!userBgm && (
-                <span className="shrink-0 px-2 py-0.5 bg-amber-500 text-white text-[8px] font-black rounded">필수</span>
-              )}
-              <input
-                type="file"
-                className="hidden"
-                accept="audio/*"
-                onChange={(e) => e.target.files?.[0] && setUserBgm(e.target.files[0])}
-              />
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">
+              <span className="flex items-center gap-2"><Mic size={12} /> 9. Narration Voice (나레이션 보이스)</span>
             </label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { id: 'Charon',  label: 'Charon',  desc: '깊고 묵직한 남성', tag: '👹 추천' },
+                { id: 'Fenrir',  label: 'Fenrir',  desc: '어둡고 낮은 남성', tag: '🌑 공포' },
+                { id: 'Kore',    label: 'Kore',    desc: '냉정한 여성',       tag: '👁 미스터리' },
+                { id: 'Aoede',   label: 'Aoede',   desc: '부드러운 여성',     tag: '🌙 분위기' },
+                { id: 'Puck',    label: 'Puck',    desc: '중성적 내레이터',   tag: '' },
+                { id: 'Orbit',   label: 'Orbit',   desc: '또렷한 내레이터',   tag: '' },
+              ] as { id: string; label: string; desc: string; tag: string }[]).map(v => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setTtsVoice(v.id)}
+                  disabled={isGenerating}
+                  className={`relative flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
+                    ttsVoice === v.id
+                      ? 'border-red-700 bg-red-950/50 shadow-md shadow-red-950'
+                      : 'border-[#1E1E2C] bg-[#12121E] hover:border-[#3A1A1A]'
+                  }`}
+                >
+                  {v.tag && (
+                    <span className="absolute top-1.5 right-1.5 text-[7px] font-black bg-red-900 text-red-300 px-1.5 py-0.5 rounded-full">{v.tag}</span>
+                  )}
+                  <span className={`text-xs font-black ${ ttsVoice === v.id ? 'text-red-300' : 'text-[#C0B0A0]'}`}>{v.label}</span>
+                  <span className="text-[9px] text-[#6B5A5A] font-medium">{v.desc}</span>
+                  {ttsVoice === v.id && (
+                    <span className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                  )}
+                </button>
+              ))}
+            </div>
+            <p className="text-[9px] text-[#6B5A5A] font-bold mt-2">📌 Charon / Fenrir — 공포 나레이션 최적화 보이스</p>
           </div>
 
-          <button
-            type="submit"
-            disabled={isGenerating || !topic}
-            className={`w-full py-5 rounded-2xl flex items-center justify-center gap-3 font-black text-lg transition-all shadow-xl shadow-red-950/50 active:scale-[0.98] btn-mystery ${isGenerating ? 'bg-[#1A1A28] text-[#4A4A5A] shadow-none' : 'bg-red-800 text-white hover:bg-red-700'}`}
-          >
-            {isGenerating ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Wand2 className="w-6 h-6" /><span>AI GENERATE</span></>}
-          </button>
+          {/* ===== 10. BGM 자동 선택 ===== */}
+          <div>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">
+              10. Background Music (BGM 자동 선택)
+            </label>
+
+            {/* 현재 선택된 BGM 표시 */}
+            <div className={`flex items-center gap-3 p-3.5 rounded-2xl border-2 mb-3 transition-all ${
+              userBgm ? 'bg-[#0A1210] border-emerald-700' : 'bg-[#12121E] border-[#1E1E2C]'
+            }`}>
+              <div className={`p-2.5 rounded-xl shrink-0 ${ userBgm ? 'bg-emerald-950' : 'bg-[#1A1228]'}`}>
+                <Volume2 size={18} className={userBgm ? 'text-emerald-500' : 'text-[#6B4A8A]'} />
+              </div>
+              <div className="flex-1 min-w-0">
+                {userBgm ? (
+                  <>
+                    <p className="text-xs font-black text-emerald-400 truncate">{userBgm.name}</p>
+                    <p className="text-[9px] text-emerald-700 font-bold">✅ BGM 준비완료 ({(userBgm.size / 1024 / 1024).toFixed(1)} MB)</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs font-black text-[#8B6A8A]">BGM 미선택</p>
+                    <p className="text-[9px] text-[#4A3A4A] font-bold">아래 버튼으로 자동 선택하세요</p>
+                  </>
+                )}
+              </div>
+              {userBgm && (
+                <button onClick={() => { setUserBgm(null); setSelectedBgmTrack(null); }}
+                  className="shrink-0 p-1.5 bg-red-950/40 hover:bg-red-950 rounded-lg border border-red-900/30 transition-all">
+                  <X size={12} className="text-red-500" />
+                </button>
+              )}
+            </div>
+
+            {/* 자동 선택 버튼들 */}
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                disabled={isBgmLoading || isGenerating}
+                onClick={async () => {
+                  setIsBgmLoading(true);
+                  try {
+                    const track = pickRandomBgm(selectedBgmTrack?.id);
+                    setSelectedBgmTrack(track);
+                    const file = await fetchBgmAsFile(track);
+                    setUserBgm(file);
+                  } catch (e) {
+                    console.error('BGM 로드 실패:', e);
+                  } finally {
+                    setIsBgmLoading(false);
+                  }
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black text-xs transition-all border-2 ${
+                  isBgmLoading
+                    ? 'border-[#2A1A3A] bg-[#12121E] text-[#4A3A5A]'
+                    : 'border-purple-800 bg-purple-950/50 text-purple-300 hover:bg-purple-900/50 hover:border-purple-600'
+                }`}
+              >
+                {isBgmLoading
+                  ? <><Loader2 size={13} className="animate-spin" /> 로딩 중...</>
+                  : <><RefreshCw size={13} /> 🎲 랜덤 자동 선택</>}
+              </button>
+
+              {/* 직접 업로드 */}
+              <label className="shrink-0 flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl font-black text-[10px] border-2 border-[#2A2A3A] bg-[#12121E] text-[#7070A0] hover:border-amber-700 hover:text-amber-500 cursor-pointer transition-all">
+                <Plus size={12} /> 직접
+                <input type="file" className="hidden" accept="audio/*"
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f) { setUserBgm(f); setSelectedBgmTrack(null); }
+                  }}
+                />
+              </label>
+            </div>
+
+            {/* BGM 라이브러리 목록 (접기/펼치기) */}
+            <details className="group">
+              <summary className="flex items-center gap-2 cursor-pointer text-[10px] font-black text-[#5A4A6A] hover:text-[#8A7AAA] transition-colors list-none select-none">
+                <ChevronDown size={12} className="group-open:rotate-180 transition-transform" />
+                라이브러리 목록 보기 ({BGM_LIBRARY.length}곡)
+              </summary>
+              <div className="mt-2 max-h-40 overflow-y-auto custom-scrollbar space-y-1 pr-1">
+                {BGM_LIBRARY.map(track => (
+                  <button
+                    key={track.id}
+                    type="button"
+                    disabled={isBgmLoading || isGenerating}
+                    onClick={async () => {
+                      setIsBgmLoading(true);
+                      try {
+                        setSelectedBgmTrack(track);
+                        const file = await fetchBgmAsFile(track);
+                        setUserBgm(file);
+                      } catch {}
+                      setIsBgmLoading(false);
+                    }}
+                    className={`w-full text-left flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold transition-all border ${
+                      selectedBgmTrack?.id === track.id && userBgm
+                        ? 'border-emerald-700 bg-emerald-950/30 text-emerald-400'
+                        : 'border-[#1E1E2C] bg-[#0E0E1A] text-[#6B5A7A] hover:border-purple-800 hover:text-purple-400'
+                    }`}
+                  >
+                    <span className="text-[8px]">♪</span>
+                    <span className="truncate">{track.label}</span>
+                    {selectedBgmTrack?.id === track.id && userBgm && (
+                      <span className="ml-auto text-[8px] font-black text-emerald-500">▶ 선택됨</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </details>
+          </div>
+
+          {/* ① 생성 버튼 + 취소 버튼 */}
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              disabled={isGenerating || !topic}
+              className={`flex-1 py-5 rounded-2xl flex items-center justify-center gap-3 font-black text-lg transition-all shadow-xl shadow-red-950/50 active:scale-[0.98] btn-mystery ${isGenerating ? 'bg-[#1A1A28] text-[#4A4A5A] shadow-none' : 'bg-red-800 text-white hover:bg-red-700'}`}
+            >
+              {isGenerating ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Wand2 className="w-6 h-6" /><span>AI GENERATE</span></>}
+            </button>
+            {isGenerating && (
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={isCancelling}
+                className="px-5 py-5 rounded-2xl bg-red-950 border-2 border-red-800 text-red-400 hover:bg-red-900 transition-all font-black flex items-center gap-2 text-sm"
+                title="생성 취소"
+              >
+                <StopCircle size={18} />
+                {isCancelling ? '취소중...' : '취소'}
+              </button>
+            )}
+          </div>
+
+          {/* ② 생성 이력 패널 */}
+          <div className="border-t border-[#2A1A1A] pt-6">
+            <button
+              type="button"
+              onClick={() => setShowHistory(!showHistory)}
+              className="flex items-center justify-between w-full text-[11px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-200 transition-colors"
+            >
+              <div className="flex items-center gap-2"><History size={13} /> 생성 이력 ({history.length})</div>
+              {showHistory ? <ChevronUp size={13}/> : <ChevronDown size={13}/>}
+            </button>
+            {showHistory && (
+              <div className="mt-3 space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+                {history.length === 0 && <p className="text-[10px] text-slate-600 font-bold text-center py-4">아직 이력이 없습니다</p>}
+                {history.map(h => (
+                  <div key={h.id} className="flex items-center gap-2 p-2 bg-[#12121E] border border-[#2A1A1A] rounded-xl">
+                    <button onClick={() => loadFromHistory(h)} className="flex-1 text-left">
+                      <p className="text-[10px] font-black text-[#E8DDD0] truncate">{h.topic.slice(0, 30)}...</p>
+                      <p className="text-[9px] text-slate-600 font-bold">{h.createdAt}</p>
+                    </button>
+                    <button onClick={() => deleteHistory(h.id)} className="p-1 text-slate-700 hover:text-red-500 transition-colors shrink-0">
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ===== 시리즈 3부작 기획 패널 ===== */}
+          <div className="border-t border-[#2A1A1A] pt-6">
+            <button
+              type="button"
+              onClick={() => setShowSeries(!showSeries)}
+              className="flex items-center justify-between w-full text-[11px] font-black text-slate-400 uppercase tracking-widest hover:text-amber-400 transition-colors"
+            >
+              <div className="flex items-center gap-2"><Sparkles size={13} /> 시리즈 3부작 자동 기획</div>
+              {showSeries ? <ChevronUp size={13}/> : <ChevronDown size={13}/>}
+            </button>
+            {showSeries && (
+              <div className="mt-3 space-y-3">
+                <p className="text-[9px] text-[#6B5A5A] font-bold">현재 주제를 기반으로 전·중·후편 시리즈를 AI가 자동 설계합니다</p>
+                <button
+                  type="button"
+                  disabled={!topic || isSeriesLoading || isGenerating}
+                  onClick={async () => {
+                    setIsSeriesLoading(true);
+                    try {
+                      const eps = await generateSeriesPlan(topic, selectedPersona);
+                      setSeriesEpisodes(eps);
+                    } catch (e) { console.error(e); }
+                    setIsSeriesLoading(false);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-amber-800 bg-amber-950/40 text-amber-300 text-xs font-black hover:border-amber-600 transition-all disabled:opacity-40"
+                >
+                  {isSeriesLoading ? <><Loader2 size={13} className="animate-spin" /> 기획 중...</> : <><Zap size={13}/> 3부작 시리즈 기획 생성</>}
+                </button>
+                {seriesEpisodes.length > 0 && (
+                  <div className="space-y-2">
+                    {seriesEpisodes.map(ep => (
+                      <div key={ep.episode} className="p-3 rounded-xl border border-amber-900/40 bg-amber-950/20">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-800 text-amber-200">{ep.episode === 1 ? '前編' : ep.episode === 2 ? '中編' : '後編'}</span>
+                          <span className="text-[10px] font-black text-amber-300 truncate">{ep.title_ja}</span>
+                        </div>
+                        <p className="text-[9px] text-slate-500 font-medium line-clamp-2">{ep.script_outline_ja}</p>
+                        <p className="text-[9px] text-red-400 font-bold mt-1">↪ {ep.cliffhanger_ja}</p>
+                        <button
+                          type="button"
+                          onClick={() => setTopic(ep.title_ja)}
+                          className="mt-1.5 text-[8px] font-black text-amber-600 hover:text-amber-400 transition-colors"
+                        >이 에피소드로 생성 →</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ③ 배치 생성 패널 */}
+          <div className="border-t border-[#2A1A1A] pt-6">
+            <button
+              type="button"
+              onClick={() => setShowBatch(!showBatch)}
+              className="flex items-center justify-between w-full text-[11px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-200 transition-colors"
+            >
+              <div className="flex items-center gap-2"><ListPlus size={13} /> 배치 생성 (대량 자동화)</div>
+              {showBatch ? <ChevronUp size={13}/> : <ChevronDown size={13}/>}
+            </button>
+            {showBatch && (
+              <div className="mt-3 space-y-3">
+                <textarea
+                  rows={4}
+                  className="w-full rounded-xl border border-[#2A1A1A] bg-[#0F0F1A] text-[#E8DDD0] text-xs font-bold p-3 resize-none placeholder-[#4A3A3A] focus:border-red-700 outline-none"
+                  placeholder={`주제 여러 개 입력 (줄바꾸기로 구분):\n\u5c71の決し掃い\n\u6df1夜のコンビニ\n으싅 소리...`}
+                  value={batchInput}
+                  onChange={e => setBatchInput(e.target.value)}
+                  disabled={isBatchRunning}
+                />
+                <div className="flex gap-2">
+                  <button type="button" onClick={handleBatchAdd} disabled={!batchInput.trim() || isBatchRunning}
+                    className="flex-1 py-2 rounded-xl bg-[#1E1E2C] text-[#C0B0A0] text-xs font-black hover:bg-[#2A2A3A] transition-all flex items-center justify-center gap-1">
+                    <Plus size={12} /> 큐에 추가
+                  </button>
+                  <button type="button" onClick={handleBatchStart} disabled={isBatchRunning || batchQueue.filter(q => q.status === 'pending').length === 0}
+                    className="flex-1 py-2 rounded-xl bg-red-800 text-white text-xs font-black hover:bg-red-700 transition-all flex items-center justify-center gap-1">
+                    {isBatchRunning ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                    {isBatchRunning ? '실행중...' : '배치 시작'}
+                  </button>
+                </div>
+                {batchQueue.length > 0 && (
+                  <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
+                    {batchQueue.map((q, i) => (
+                      <div key={q.id} className="flex items-center gap-2 text-[10px] font-bold">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${ q.status==='pending'?'bg-slate-600': q.status==='running'?'bg-amber-400 animate-pulse': q.status==='done'?'bg-emerald-500':'bg-red-500'}`}/>
+                        <span className="text-[#C0B0A0] truncate flex-1">{q.topic.slice(0,20)}</span>
+                        <span className={`shrink-0 ${ q.status==='done'?'text-emerald-500': q.status==='error'?'text-red-500': q.status==='running'?'text-amber-400':'text-slate-600'}`}>
+                          {q.status==='pending'?'대기':q.status==='running'?'실행중':q.status==='done'?'완료':'실패'}
+                        </span>
+                        {q.status !== 'running' && (
+                          <button onClick={() => setBatchQueue(prev => prev.filter((_,idx)=>idx!==i))} className="text-slate-700 hover:text-red-500">
+                            <X size={10}/>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </form>
       </aside>
 
@@ -621,6 +1197,7 @@ export default function App() {
           )}
 
           {plan ? (
+            <div>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
               <div className="lg:col-span-8 space-y-10">
                 <div className="flex p-1.5 bg-[#12121E] border border-[#1E1E2C] rounded-2xl w-fit shadow-sm">
@@ -630,15 +1207,39 @@ export default function App() {
                   <button onClick={() => setActiveTab('code')} className={`px-8 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'code' ? 'bg-red-800 text-white shadow-lg shadow-red-950' : 'text-[#6B5A5A] hover:text-[#9B8A7A]'}`}>
                     <Terminal size={18} /> EXPORT ENGINE
                   </button>
+                  <button onClick={() => setActiveTab('calendar')} className={`px-8 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'calendar' ? 'bg-indigo-800 text-white shadow-lg shadow-indigo-950' : 'text-[#6B5A5A] hover:text-[#9B8A7A]'}`}>
+                    <Calendar size={18} /> SCHEDULE
+                  </button>
                 </div>
 
-                {activeTab === 'preview' ? (
+                {activeTab === 'calendar' ? (
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+                    <div>
+                      <h3 className="text-xl font-black text-[#E8DDD0] mb-2 flex items-center gap-3">
+                        <Calendar size={22} className="text-indigo-400" /> Upload Schedule
+                      </h3>
+                      <p className="text-[11px] text-[#6B5A5A] font-bold mb-6">수/목 21:00 JST — 알고리즘 최강 슬롯. 날짜를 클릭해 업로드 적합도를 확인하세요.</p>
+                      <ContentCalendar
+                        scheduledVideos={[]}
+                        onSchedule={(date, time) => {
+                          alert(`✅ ${date} ${time} JST 업로드 예약\n이 기능은 YouTube Data API 연동 후 자동 예약이 가능합니다.`);
+                        }}
+                      />
+                    </div>
+                  </div>
+                ) : activeTab === 'preview' ? (
                   <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <ScriptCard plan={plan} personaType={selectedPersona} language={contentLanguage} />
+                    <ScriptCard
+                      plan={plan}
+                      personaType={selectedPersona}
+                      language={contentLanguage}
+                      topic={topic}
+                      onScriptChange={(ja, kr) => setPlan(prev => prev ? { ...prev, script_ja: ja, script_kr: kr } : null)}
+                    />
                     <div className="mt-10 bg-[#0E0E1A] border border-[#1E1E2C] rounded-[2.5rem] p-10 shadow-lg">
                       <h3 className="text-xl font-black text-[#E8DDD0] mb-8 flex items-center gap-3">
                         <Grid size={24} className="text-red-500" />
-                        Storyboard Sequence (2K High-Res)
+                        Storyboard Sequence
                       </h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {plan.hookImageUrl && (
@@ -660,36 +1261,109 @@ export default function App() {
                                 >
                                   <Zap size={20} />
                                 </button>
+                                <button
+                                  onClick={() => setShowThumbnailEditor(true)}
+                                  className="p-3 bg-purple-600 rounded-full text-white hover:scale-110 transition-transform shadow-lg"
+                                  title="✏️ 썸네일 텍스트 에디터"
+                                >
+                                  <Type size={20} />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const a = document.createElement('a');
+                                    a.href = plan.hookImageUrl!;
+                                    a.download = `hook_image_${Date.now()}.png`;
+                                    a.click();
+                                  }}
+                                  className="p-3 bg-emerald-600 rounded-full text-white hover:scale-110 transition-transform shadow-lg"
+                                  title="훅 이미지 다운로드"
+                                >
+                                  <ImageIcon size={20} />
+                                </button>
                               </div>
                               <div className="absolute top-4 left-4 bg-red-800 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">Master Hook</div>
                             </div>
-                            <div className="bg-[#12121E] p-3 rounded-2xl border border-[#1E1E2C]">
-                              <p className="text-[10px] text-[#6B5A5A] font-bold mb-1 uppercase tracking-tighter line-clamp-2" title={plan.hook_image_prompt}>
+                            <div className="bg-[#12121E] p-3 rounded-2xl border border-[#1E1E2C] space-y-2">
+                              <p className="text-[10px] text-[#6B5A5A] font-bold uppercase tracking-tighter line-clamp-2" title={plan.hook_image_prompt}>
                                 {plan.hook_image_prompt}
                               </p>
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 mb-1">
                                 <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
-                                <span className="text-[9px] font-black text-red-500">STRICT 9:16 READY</span>
+                                <span className="text-[9px] font-black text-red-500">HOOK IMAGE READY</span>
                               </div>
+                              {/* Kling AI 바로가기 */}
+                              <a
+                                href="https://kling.ai"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center gap-1.5 w-full py-1.5 bg-purple-950 hover:bg-purple-900 border border-purple-800 rounded-xl text-[9px] font-black text-purple-400 transition-all"
+                              >
+                                <Zap size={9} /> Kling AI로 훅 영상 제작 (무료)
+                              </a>
+                              {/* 외부 훅 영상 업로드 */}
+                              <label className={`flex items-center justify-center gap-1.5 w-full py-1.5 rounded-xl text-[9px] font-black cursor-pointer transition-all border ${
+                                userHookVideo
+                                  ? 'bg-emerald-950 border-emerald-700 text-emerald-400'
+                                  : 'bg-[#1A1A28] border-[#2A2A3A] hover:border-emerald-700 text-[#6B5A5A]'
+                              }`}>
+                                <Play size={9} />
+                                {userHookVideo ? `✅ ${userHookVideo.name.slice(0, 18)}...` : '외부 훅 영상 업로드 (.mp4)'}
+                                <input
+                                  type="file"
+                                  accept="video/*"
+                                  className="hidden"
+                                  onChange={e => setUserHookVideo(e.target.files?.[0] || null)}
+                                />
+                              </label>
+                              {userHookVideo && (
+                                <button
+                                  onClick={() => setUserHookVideo(null)}
+                                  className="w-full text-[8px] text-[#6B5A5A] hover:text-red-400 font-bold transition-colors"
+                                >
+                                  ✕ 업로드 취소 (AI 생성 사용)
+                                </button>
+                              )}
                             </div>
                           </div>
                         )}
-                        {plan.storyImageUrls?.map((url, i) => (
-                          <div key={i} className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ animationDelay: `${i * 50}ms` }}>
+                      {plan.storyImageUrls?.map((url, i) => (
+                        <div
+                          key={i}
+                          className={`space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300 cursor-grab active:cursor-grabbing ${ dragIndex === i ? 'opacity-40 scale-95' : 'opacity-100'} transition-all`}
+                          style={{ animationDelay: `${i * 50}ms` }}
+                          draggable
+                          onDragStart={e => handleImageDragStart(e, i)}
+                          onDragOver={e => e.preventDefault()}
+                          onDrop={e => handleImageDrop(e, i)}
+                        >
                             <div className="aspect-[9/16] rounded-3xl bg-[#1A1A28] overflow-hidden relative group border-2 border-[#1E1E2C] hover:border-red-700 transition-all shadow-md">
                               <img src={url} className="w-full h-full object-cover" />
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
                                 <button
                                   onClick={() => setEditingIndex({ index: i, prompt: plan.story_image_prompts[i] })}
                                   className="p-3 bg-white rounded-full text-indigo-600 hover:scale-110 transition-transform shadow-lg"
+                                  title="프롬프트 수정"
                                 >
                                   <Sparkles size={20} />
                                 </button>
                                 <button
                                   onClick={() => handleRegenerateImage(i)}
                                   className="p-3 bg-indigo-600 rounded-full text-white hover:scale-110 transition-transform shadow-lg"
+                                  title="즉시 재생성"
                                 >
                                   <Zap size={20} />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `story_${i + 1}_${Date.now()}.png`;
+                                    a.click();
+                                  }}
+                                  className="p-3 bg-emerald-600 rounded-full text-white hover:scale-110 transition-transform shadow-lg"
+                                  title={`스토리 ${i + 1} 다운로드`}
+                                >
+                                  <ImageIcon size={20} />
                                 </button>
                               </div>
                               <div className="absolute top-4 right-4 bg-black/70 text-white text-[10px] px-3 py-1 rounded-full font-black backdrop-blur-md border border-white/20">SCENE #{i + 1}</div>
@@ -710,7 +1384,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <PythonExport plan={plan} userBgm={userBgm} onAnimateHook={handleAnimateHook} isAnimatingHook={step === GenerationStep.GENERATING_HOOK_VIDEO} language={contentLanguage} />
+                    <PythonExport plan={plan} userBgm={userBgm} onAnimateHook={handleAnimateHook} isAnimatingHook={step === GenerationStep.GENERATING_HOOK_VIDEO} language={contentLanguage} bgmVolume={bgmVolume} onBgmVolumeChange={setBgmVolume} userHookVideo={userHookVideo} />
                   </div>
                 )}
               </div>
@@ -721,23 +1395,30 @@ export default function App() {
                     userBgm={userBgm}
                     onBgmSelect={setUserBgm}
                     language={contentLanguage}
+                    bgmVolume={bgmVolume}
                   />
                 </div>
               </div>
+            </div>
 
-              {/* ── YouTube 업로드 버튼 ── */}
-              <div className="mt-8 p-5 bg-[#0D0D18] border border-[#2A1A1A] rounded-3xl flex items-center justify-between">
+            {/* ── YouTube 업로드 버튼 (전체 너비) ── */}
+            <div className="mt-8 p-6 bg-[#0D0D18] border border-[#2A1A1A] rounded-3xl flex flex-col sm:flex-row items-center gap-4 sm:justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-red-950 border border-red-900 rounded-2xl">
+                  <Youtube size={22} className="text-red-400" />
+                </div>
                 <div>
-                  <p className="text-[#E8DDD0] font-black text-sm">🎬 YouTube에 게시하기</p>
+                  <p className="text-[#E8DDD0] font-black text-base">🎬 YouTube에 게시하기</p>
                   <p className="text-[#6B5A5A] text-xs font-bold mt-0.5">render.py로 생성된 영상을 예약 또는 즉시 업로드</p>
                 </div>
-                <button
-                  onClick={() => setShowUploadModal(true)}
-                  className="flex items-center gap-2 px-5 py-3 bg-red-800 hover:bg-red-700 text-white font-black rounded-xl text-sm transition-all shadow-lg shadow-red-950/50"
-                >
-                  <Youtube size={18} /> YouTube 업로드
-                </button>
               </div>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-red-800 hover:bg-red-700 text-white font-black rounded-2xl text-sm transition-all shadow-xl shadow-red-950/50 active:scale-[0.97]"
+              >
+                <Youtube size={20} /> YouTube 업로드
+              </button>
+            </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-32 text-center">
@@ -759,6 +1440,15 @@ export default function App() {
         <YoutubeUploadModal
           plan={plan}
           onClose={() => setShowUploadModal(false)}
+        />
+      )}
+
+      {/* ── 썸네일 텍스트 에디터 모달 ── */}
+      {showThumbnailEditor && plan?.hookImageUrl && (
+        <ThumbnailEditor
+          hookImageUrl={plan.hookImageUrl}
+          titleJa={plan.title_ja}
+          onClose={() => setShowThumbnailEditor(false)}
         />
       )}
 

@@ -1,0 +1,9 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // generation_history: 누구나 읽기/쓰기 가능 (개인용 앱)
+    match /generation_history/{docId} {
+      allow read, write: if true;
+    }
+  }
+}

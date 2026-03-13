@@ -8,6 +8,7 @@ interface VideoPreviewProps {
   userBgm: File | null;
   onBgmSelect: (file: File | null) => void;
   language: ContentLanguage;
+  bgmVolume?: number;
 }
 
 async function decodeAudioData(base64Data: string, ctx: AudioContext, sampleRate: number = 24000): Promise<AudioBuffer> {
@@ -26,7 +27,7 @@ async function decodeUserFile(file: File, ctx: AudioContext): Promise<AudioBuffe
   return await ctx.decodeAudioData(arrayBuffer);
 }
 
-export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan, userBgm, onBgmSelect, language }) => {
+export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan, userBgm, onBgmSelect, language, bgmVolume = 0.15 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const totalDuration = 179;
@@ -104,7 +105,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan, userBgm, onBgm
         bgmSource.buffer = bgmBuffer;
         bgmSource.loop = true;
         const gain = ctx.createGain();
-        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.setValueAtTime(bgmVolume, ctx.currentTime);
         bgmSource.connect(gain);
         gain.connect(ctx.destination);
         bgmSource.start(ctx.currentTime);

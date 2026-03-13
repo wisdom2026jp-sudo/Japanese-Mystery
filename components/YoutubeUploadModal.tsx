@@ -16,7 +16,11 @@ type UploadStatus = 'idle' | 'authorizing' | 'uploading' | 'done' | 'error';
 const YoutubeUploadModal: React.FC<Props> = ({ plan, onClose }) => {
     const [token, setToken] = useState<string | null>(null);
     const [title, setTitle] = useState(plan.title_ja || '');
-    const [description, setDescription] = useState(plan.description_ja || '');
+    const [description, setDescription] = useState(() => {
+        const base = plan.description_ja || '';
+        const hook = '\n\n━━━━━━━━━━━━━━━━━━━━━━\nあなたはこのような体験をしたことがありますか？\nコメントで教えてください👇\n\nチャンネル登録で続きの真相を公開予定です🔔';
+        return base + hook;
+    });
     const [tags, setTags] = useState((plan.tags || []).join(', '));
     const [file, setFile] = useState<File | null>(null);
     const [useSchedule, setUseSchedule] = useState(true);
@@ -24,7 +28,7 @@ const YoutubeUploadModal: React.FC<Props> = ({ plan, onClose }) => {
         const d = new Date(); d.setDate(d.getDate() + 1);
         return d.toISOString().split('T')[0];
     });
-    const [scheduleTime, setScheduleTime] = useState('20:00');
+    const [scheduleTime, setScheduleTime] = useState('21:00');  // 최적 업로드 시간 JST 21:00
     const [status, setStatus] = useState<UploadStatus>('idle');
     const [progress, setProgress] = useState(0);
     const [videoId, setVideoId] = useState<string | null>(null);
@@ -232,6 +236,23 @@ const YoutubeUploadModal: React.FC<Props> = ({ plan, onClose }) => {
                                 📅 {scheduleDate} {scheduleTime} JST에 자동 공개됩니다
                             </p>
                         )}
+
+                        {/* 요일별 최적 업로드 배지 */}
+                        <div className="pt-2 border-t border-[#1E1E2C]">
+                            <p className="text-[9px] font-black text-[#4A3A3A] uppercase tracking-widest mb-2">알고리즘 최적 업로드 요일</p>
+                            <div className="flex gap-1.5 flex-wrap">
+                                {[['월','보통'],['화','보통'],['수','최고'],['목','최고'],['금','보통'],['토','오후2시'],['일','오후2시']].map(([day, grade]) => (
+                                    <span key={day} className={`px-2.5 py-1 rounded-full text-[9px] font-black ${
+                                        grade === '최고' ? 'bg-amber-500 text-white' :
+                                        grade === '오후2시' ? 'bg-blue-900/60 text-blue-300 border border-blue-800' :
+                                        'bg-[#1A1A28] text-[#4A4A5A]'
+                                    }`}>
+                                        {day} {grade === '최고' ? '⭐' : grade === '오후2시' ? '🌅' : ''}
+                                    </span>
+                                ))}
+                            </div>
+                            <p className="text-[8px] text-amber-400 font-bold mt-1.5">⭐ 수·목요일 21시 JST — 경쟁 낮고 알고리즘 노출 최대</p>
+                        </div>
                     </div>
 
                     {/* 업로드 진행률 */}
